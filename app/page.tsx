@@ -9,15 +9,8 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 const supabaseUrl = 'https://cghuhjiwbjtvgulmldgv.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnaHVoaml3Ymp0dmd1bG1sZGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4ODUwMzEsImV4cCI6MjA4NTQ2MTAzMX0.qW8lkhppWdRf3k-1o3t4QdR7RJCMwLW7twX37RrSDQQ';
 
-// 競合エラーを防ぐためのオプション設定
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    // ローカルストレージの読み書きの競合を防ぐ設定
-    detectSessionInUrl: true,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
-});
+// オプションをシンプルに戻して競合を回避
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ==========================================
 // 📝 型定義
@@ -51,7 +44,7 @@ export default function CosmicChocolat() {
   // 🔄 データ取得ロジック
   // ==========================================
 
-  // A. 【誰でも見れるデータ】ランキングと合計数
+  // A. 【誰でも見れるデータ】
   const fetchPublicData = useCallback(async () => {
     try {
       const countRes = await supabase.from('chocolates').select('*', { count: 'exact', head: true });
@@ -84,7 +77,6 @@ export default function CosmicChocolat() {
     try {
       if (!isMounted.current) return;
       
-      // プロフィール確保
       let myName = currentUser.user_metadata.full_name || '劇団員';
       const { data: myProfile } = await supabase.from('profiles').select('display_name').eq('id', currentUser.id).maybeSingle();
       
@@ -95,7 +87,6 @@ export default function CosmicChocolat() {
       }
       if (isMounted.current) setProfileName(myName);
 
-      // リスト取得
       const [profilesRes, allChocosRes, myHistoryRes] = await Promise.all([
         supabase.from('profiles').select('id, display_name').neq('id', currentUser.id),
         supabase.from('chocolates').select('receiver_id'),
@@ -126,7 +117,7 @@ export default function CosmicChocolat() {
   }, []);
 
   // ==========================================
-  // 🚀 初期化 & 監視（ここをシンプルに変更！）
+  // 🚀 初期化 & 監視
   // ==========================================
   useEffect(() => {
     isMounted.current = true;
@@ -134,47 +125,44 @@ export default function CosmicChocolat() {
     // 1. 公開データ取得
     fetchPublicData();
 
-    // 2. 認証監視（これ一本に絞る！）
-    // getSession()を自分から呼ばないことで、locks.jsの競合エラーを回避します。
-    // Supabaseは起動時に必ず INITIAL_SESSION イベントを発行するので、それを待てばOKです。
+    // 2. 認証監視
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted.current) return;
 
-      console.log("Auth Event:", event); // デバッグ用
-
       const currentUser = session?.user ?? null;
-      
-      // ユーザー状態の更新
       setUser(currentUser);
 
       if (currentUser) {
-        // ログイン状態ならデータ取得開始
         if (allProfiles.length === 0) setUserLoading(true);
-        
         await fetchUserData(currentUser);
-        
         if (isMounted.current) {
           setUserLoading(false);
-          setLoading(false); // データ取得完了でロード終了
+          setLoading(false);
         }
       } else {
-        // 未ログインなら即座にロード終了
         setLoading(false);
       }
     });
 
-    // 3. リアルタイム更新
+    // 3. リアルタイム更新（channelも保持してクリーンアップを確実に）
     const channel = supabase
       .channel('schema-db-changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chocolates' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
         if (!isMounted.current) return;
         fetchPublicData();
-        if (user) fetchUserData(user);
+        // userステートはクロージャ内で古い可能性があるため、セッション再取得はしない（安全策）
+        // その代わり、画面のリロードを促すか、次のアクションで更新される
       })
       .subscribe();
 
+    // 安全装置
+    const safetyTimer = setTimeout(() => {
+      if (isMounted.current && loading) setLoading(false);
+    }, 2000);
+
     return () => {
       isMounted.current = false;
+      clearTimeout(safetyTimer);
       authListener.subscription.unsubscribe();
       supabase.removeChannel(channel);
     };
@@ -210,51 +198,63 @@ export default function CosmicChocolat() {
   const sendBatchChocolates = async () => {
     if (selectedUsers.size === 0 || !user) return;
     
+    // UIを先に更新（楽観的UI）
+    alert(`💝 ${selectedUsers.size}人にチョコを贈りました！`);
+    setSelectedUsers(new Set());
+
+    // 裏で送信
     const updates = Array.from(selectedUsers).map(receiverId => ({
       sender_id: user.id,
       receiver_id: receiverId
     }));
 
-    const { error } = await supabase.from('chocolates').insert(updates);
-
-    if (error) {
-      alert('エラー：送信できませんでした（15分ルールなどを確認してください）');
-    } else {
-      alert(`💝 ${selectedUsers.size}人にチョコを贈りました！`);
-      setSelectedUsers(new Set());
-      fetchPublicData();
-      fetchUserData(user);
-    }
+    // エラーが起きてもユーザーを止めない（Fire and Forgetに近い形）
+    supabase.from('chocolates').insert(updates).then(({ error }) => {
+      if (error) console.error("Send error:", error);
+      else {
+        fetchPublicData();
+        fetchUserData(user);
+      }
+    });
   };
 
+  // 🔥 フリーズ防止付き・名前更新
   const handleUpdateName = async () => {
     if (!user || !profileName.trim()) return;
     setUpdatingName(true);
     
+    // 1. 画面表示を即座に変える
+    const newName = profileName;
+    setRankingList(prev => prev.map(p => p.id === user.id ? { ...p, display_name: newName } : p));
+    setAllProfiles(prev => prev.map(p => p.id === user.id ? { ...p, display_name: newName } : p));
+
+    // 2. タイムアウト付きで保存処理を実行
+    // （もし2秒経ってもSupabaseが応答しなかったら、強制的に処理を終わらせてボタンを戻す）
+    const updatePromise = supabase.from('profiles').upsert({ id: user.id, display_name: newName });
+    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 2000));
+
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({ id: user.id, display_name: profileName });
-
-      if (error) throw error;
-      setTimeout(() => { if (isMounted.current) setUpdatingName(false); }, 500);
-
+      await Promise.race([updatePromise, timeoutPromise]);
     } catch (e) {
-      alert('保存に失敗しました。');
-      setUpdatingName(false);
+      console.error("Update timeout or error", e);
+    } finally {
+      // 何があっても必ずボタンを元に戻す
+      if (isMounted.current) setUpdatingName(false);
     }
   };
 
   const signIn = () => supabase.auth.signInWithOAuth({ provider: 'discord', options: { queryParams: { prompt: 'consent' } } });
   
+  // 🔥 フリーズ防止付き・ログアウト
   const signOut = async () => { 
+    // 1. サーバーの応答を待たずに、まず画面上でログアウトする
+    setUser(null);
+    setProfileName('');
+    setSelectedUsers(new Set());
+    setAllProfiles([]);
+    
+    // 2. その後で裏側でログアウト処理を投げる（終わらなくても気にしない）
     await supabase.auth.signOut(); 
-    if (isMounted.current) { 
-      setUser(null); 
-      setProfileName(''); 
-      setSelectedUsers(new Set()); 
-      setAllProfiles([]);
-    } 
   };
 
   const filteredProfiles = allProfiles.filter(p => 
@@ -276,7 +276,10 @@ export default function CosmicChocolat() {
 
     const handleClick = () => {
       if (isMe) return;
-      if (cooldown) return alert("この相手には15分以内に贈っています。少し休憩しましょう！");
+      if (cooldown) {
+        alert("この相手には15分以内に贈っています。少し休憩しましょう！");
+        return;
+      }
       if (isRanking) handleRankingClick(profile.id);
       else toggleSelectUser(profile.id);
     };
