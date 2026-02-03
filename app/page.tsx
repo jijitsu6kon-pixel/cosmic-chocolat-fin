@@ -4,14 +4,14 @@ import { createClient } from '@supabase/supabase-js';
 import { useEffect, useState, useRef, useCallback } from 'react';
 
 // ==========================================
-// ⚙️ 設定
+// ⚙️ 設定 (変更なし)
 // ==========================================
 const supabaseUrl = 'https://cghuhjiwbjtvgulmldgv.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnaHVoaml3Ymp0dmd1bG1sZGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4ODUwMzEsImV4cCI6MjA4NTQ2MTAzMX0.qW8lkhppWdRf3k-1o3t4QdR7RJCMwLW7twX37RrSDQQ';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ==========================================
-// 📝 型定義
+// 📝 型定義 (変更なし)
 // ==========================================
 type Profile = {
   id: string;
@@ -21,53 +21,54 @@ type Profile = {
 };
 
 // ==========================================
-// 🧱 メインコンポーネント（認証管理・親）
+// 🧱 メインコンポーネント (ロジック変更なし)
 // ==========================================
 export default function CosmicChocolatApp() {
   const [session, setSession] = useState<any>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   useEffect(() => {
-    // 1. URLにアクセストークンがあるかチェック（リダイレクト直後の判定）
     const isRedirecting = window.location.hash.includes('access_token');
     if (isRedirecting) {
-      setIsAuthChecking(true); // リダイレクト中なら強制的にロード画面維持
+      setIsAuthChecking(true);
     }
-
-    // 2. 認証状態の監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      setIsAuthChecking(false); // 判定完了
+      setIsAuthChecking(false);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
-  // 認証チェック中は「起動画面」を表示して、下のコンポーネントをマウントさせない（これが重要！）
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen bg-[#1a0f0d] flex items-center justify-center text-[#eaddcf]">
-        <div className="text-center animate-pulse">
-          <h1 className="text-2xl font-bold tracking-[0.2em] mb-4">COSMIC CHOCOLAT</h1>
-          <p className="text-xs text-[#8d6e63]">VERIFYING COMMANDER...</p>
+      <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center overflow-hidden relative">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a1033] via-[#0a0e1a] to-black opacity-80"></div>
+        <div className="text-center relative z-10">
+          <div className="relative w-24 h-24 mx-auto mb-8">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700] to-[#ff3366] rounded-full animate-ping opacity-20"></div>
+            <div className="absolute inset-2 bg-gradient-to-r from-[#ffd700] to-[#ff3366] rounded-full animate-pulse blur-md opacity-40"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+               <span className="text-4xl">🛸</span>
+            </div>
+          </div>
+          <h1 className="text-3xl font-black tracking-[0.3em] mb-4 text-transparent bg-clip-text bg-gradient-to-r from-[#e6e6fa] via-[#ffd700] to-[#e6e6fa] drop-shadow-[0_0_10px_rgba(255,215,0,0.5)]">COSMIC CHOCOLAT</h1>
+          <p className="text-xs text-[#ffd700] tracking-[0.5em] animate-pulse">INITIALIZING WARDROBE...</p>
         </div>
       </div>
     );
   }
 
-  // チェック完了後、コンテンツを表示
   return <GameContent session={session} />;
 }
 
 // ==========================================
-// 🎮 ゲーム本体コンポーネント（子）
+// 🎮 ゲーム本体コンポーネント (ロジック変更なし)
 // ==========================================
 function GameContent({ session }: { session: any }) {
   const user = session?.user ?? null;
   const [rankingList, setRankingList] = useState<Profile[]>([]);
   const [totalChocolates, setTotalChocolates] = useState<number>(0);
   
-  // ユーザー専用データ
   const [myProfileName, setMyProfileName] = useState('');
   const [memberList, setMemberList] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
@@ -77,44 +78,30 @@ function GameContent({ session }: { session: any }) {
   const isMounted = useRef(true);
 
   // ----------------------------------------
-  // 🔄 データ取得 (シンプル化)
+  // 🔄 データ取得 (変更なし)
   // ----------------------------------------
   const fetchRanking = useCallback(async () => {
-    // 合計数
     const { count } = await supabase.from('chocolates').select('*', { count: 'exact', head: true });
     if (isMounted.current) setTotalChocolates(count || 0);
-
-    // ランキング（ビューから取得するだけなので爆速）
     const { data } = await supabase.from('galaxy_ranking').select('*');
     if (isMounted.current && data) setRankingList(data);
   }, []);
 
   const fetchUserData = useCallback(async () => {
     if (!user) return;
-
-    // 1. 自分の名前確保
     let name = user.user_metadata.full_name || '劇団員';
     const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle();
-    
-    if (profile) {
-      name = profile.display_name;
-    } else {
-      await supabase.from('profiles').insert({ id: user.id, display_name: name });
-    }
+    if (profile) { name = profile.display_name; } else { await supabase.from('profiles').insert({ id: user.id, display_name: name }); }
     if (isMounted.current) setMyProfileName(name);
 
-    // 2. メンバーリスト構築（自分以外）
     const { data: profiles } = await supabase.from('profiles').select('*').neq('id', user.id);
     const { data: myHistory } = await supabase.from('chocolates').select('receiver_id, created_at').eq('sender_id', user.id);
-    
-    // ランキング情報を再利用してコスト削減
     const { data: ranks } = await supabase.from('galaxy_ranking').select('*');
+    
     const countMap: Record<string, number> = {};
     ranks?.forEach((r: any) => countMap[r.id] = r.received_count);
-
     const historyMap = new Map();
     myHistory?.forEach((h: any) => {
-      // 最新の履歴を保存
       if (!historyMap.has(h.receiver_id) || new Date(historyMap.get(h.receiver_id)) < new Date(h.created_at)) {
         historyMap.set(h.receiver_id, h.created_at);
       }
@@ -131,90 +118,69 @@ function GameContent({ session }: { session: any }) {
     }
   }, [user]);
 
-  // ----------------------------------------
-  // 🚀 初期化 & リアルタイム
-  // ----------------------------------------
   useEffect(() => {
     isMounted.current = true;
     fetchRanking();
     if (user) fetchUserData();
-
-    const channel = supabase.channel('realtime')
-      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
-        fetchRanking();
-        if (user) fetchUserData(); // ここは軽量なので叩いてOK
-      })
-      .subscribe();
-
+    const channel = supabase.channel('realtime').on('postgres_changes', { event: '*', schema: 'public' }, () => {
+        fetchRanking(); if (user) fetchUserData();
+      }).subscribe();
     return () => { isMounted.current = false; supabase.removeChannel(channel); };
-  }, [user]); // userが変わるたびに再実行（これが重要）
+  }, [user]);
 
   // ----------------------------------------
-  // 🎮 アクション
+  // 🎮 アクション (変更なし)
   // ----------------------------------------
   const isCooldown = (lastDateStr?: string) => {
     if (!lastDateStr) return false;
     return (new Date().getTime() - new Date(lastDateStr).getTime()) / (1000 * 60) < 15;
   };
-
   const handleToggleSelect = (id: string) => {
     const newSet = new Set(selectedUsers);
     newSet.has(id) ? newSet.delete(id) : newSet.add(id);
     setSelectedUsers(newSet);
   };
-
   const handleClickUser = (targetId: string) => {
     if (!user) return alert("ログインしてください");
     if (targetId === user.id) return alert("自分には贈れません");
-    
-    const target = memberList.find(m => m.id === targetId) || rankingList.find(r => r.id === targetId);
-    // ランキングリストからのクリックの場合、履歴情報(last_received_at)が欠けている可能性があるのでmemberListから補完
     const detailInfo = memberList.find(m => m.id === targetId);
-    
-    if (detailInfo && isCooldown(detailInfo.last_received_at)) {
-      return alert("15分休憩しましょう！");
-    }
+    if (detailInfo && isCooldown(detailInfo.last_received_at)) { return alert("15分休憩しましょう！"); }
     handleToggleSelect(targetId);
   };
-
   const handleSend = async () => {
     if (!user || selectedUsers.size === 0) return;
-    
-    // オプティミスティック更新（見た目だけ先に成功させる）
     alert(`💝 ${selectedUsers.size}人にチョコを贈りました！`);
     setSelectedUsers(new Set());
-
     const updates = Array.from(selectedUsers).map(rid => ({ sender_id: user.id, receiver_id: rid }));
-    // バックグラウンド送信
     await supabase.from('chocolates').insert(updates);
-    fetchRanking();
-    fetchUserData();
+    fetchRanking(); fetchUserData();
   };
-
   const handleUpdateName = async () => {
     if (!user || !myProfileName) return;
     setIsActionLoading(true);
     await supabase.from('profiles').upsert({ id: user.id, display_name: myProfileName });
     setTimeout(() => setIsActionLoading(false), 500);
   };
-
   const signIn = () => supabase.auth.signInWithOAuth({ provider: 'discord', options: { queryParams: { prompt: 'consent' } } });
   const signOut = async () => { await supabase.auth.signOut(); };
 
   // ----------------------------------------
-  // 🎨 表示パーツ
+  // 🎨 表示パーツ (デザイン修正・視認性UP！)
   // ----------------------------------------
   const filteredMembers = memberList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
 
   const RankBadge = ({ index }: { index: number }) => {
-    const colors = ["text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)] scale-125", "text-gray-300 scale-110", "text-orange-400 scale-105"];
-    return <span className={`font-black text-xl ${colors[index] || "text-[#8d6e63] opacity-70"}`}>{index + 1}</span>;
+    const styles = [
+      "text-transparent bg-clip-text bg-gradient-to-b from-[#ffd700] to-[#e6b800] drop-shadow-[0_0_8px_rgba(255,215,0,0.8)] scale-125", 
+      "text-transparent bg-clip-text bg-gradient-to-b from-[#e6e6fa] to-[#c0c0c0] drop-shadow-[0_0_5px_rgba(230,230,250,0.6)] scale-110", 
+      "text-transparent bg-clip-text bg-gradient-to-b from-[#ffab91] to-[#d84315] drop-shadow-[0_0_5px_rgba(255,171,145,0.5)] scale-105"
+    ];
+    return <span className={`font-black text-xl ${styles[index] || "text-[#8d6e63] opacity-70"}`}>{index + 1}</span>;
   };
 
   const UserCard = ({ profile, index = -1, isRanking = false }: { profile: Profile, index?: number, isRanking?: boolean }) => {
     const isSelected = selectedUsers.has(profile.id);
     const isMe = user && profile.id === user.id;
-    // クールダウン判定のために詳細情報を参照
     const detail = memberList.find(m => m.id === profile.id); 
     const cooldown = isCooldown(detail?.last_received_at);
 
@@ -222,37 +188,54 @@ function GameContent({ session }: { session: any }) {
       <div 
         onClick={() => !isMe && !cooldown && handleClickUser(profile.id)}
         className={`
-          relative flex items-center justify-between p-4 mb-3 rounded-2xl transition-all duration-300 border-2 select-none
-          ${isMe ? 'bg-[#3e2723]/20 border-[#5d4037]/20 cursor-default' : 'cursor-pointer'}
-          ${!isMe && cooldown ? 'opacity-50 grayscale cursor-not-allowed bg-[#0a0403] border-transparent' : ''}
+          relative flex items-center justify-between p-4 mb-3 rounded-2xl transition-all duration-500 border select-none backdrop-blur-md overflow-hidden group
+          ${isMe ? 'bg-[#1a1033]/40 border-[#ffd700]/20 cursor-default' : 'cursor-pointer'}
+          ${!isMe && cooldown ? 'opacity-50 grayscale cursor-not-allowed bg-[#0a0e1a]/80 border-white/5' : ''}
           ${!isMe && !cooldown && isSelected 
-            ? 'bg-gradient-to-r from-[#9f1239] to-[#be123c] border-[#be123c] scale-[1.02]' 
+            ? 'bg-gradient-to-r from-[#ff3366]/80 to-[#ffd700]/80 border-[#ffd700] shadow-[0_0_20px_rgba(255,51,102,0.5)] scale-[1.02]' 
             : !isMe && !cooldown 
-              ? 'bg-[#2b120a] border-[#3e2723]/50 hover:bg-[#3e2723]/80' 
+              ? 'bg-[#1a1033]/60 border-white/10 hover:border-[#ffd700]/50 hover:bg-[#1a1033]/80 hover:shadow-[0_0_15px_rgba(26,16,51,0.8)]' 
               : ''
           }
         `}
       >
-        <div className="flex items-center gap-4 overflow-hidden w-full">
+        {isSelected && <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#ffd700]/20 to-transparent opacity-50 animate-pulse"></div>}
+        
+        <div className="flex items-center gap-4 overflow-hidden w-full relative z-10">
           <div className="flex-shrink-0 w-8 text-center flex justify-center">
             {isRanking ? <RankBadge index={index} /> : (
-               <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'bg-white border-white' : 'border-[#5d4037]'}`}>
-                 {isSelected && <span className="text-[#be123c] font-bold text-xs">✓</span>}
+               <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-[#ffd700] border-[#ffd700] shadow-[0_0_10px_#ffd700]' : 'border-white/20 group-hover:border-[#ffd700]/50'}`}>
+                 {isSelected && <span className="text-[#1a1033] font-bold text-xs">✓</span>}
                </div>
             )}
           </div>
           <div className="flex-1 overflow-hidden">
-            <p className={`font-bold text-base truncate ${isSelected ? 'text-white' : 'text-[#eaddcf]'} ${isMe ? 'opacity-50' : ''}`}>
-              {profile.display_name} {isMe && <span className="text-xs opacity-50 ml-1">(You)</span>}
+            <p className={`font-bold text-base truncate transition-colors ${isSelected ? 'text-[#1a1033]' : 'text-[#e6e6fa]'} ${isMe ? 'opacity-80' : ''}`}>
+              {profile.display_name} {isMe && <span className="text-xs font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(You)</span>}
             </p>
-            {isRanking && !isMe && <p className="text-[10px] text-[#8d6e63] mt-0.5 opacity-70">{profile.received_count} Chocolates</p>}
-            {cooldown && !isMe && <p className="text-[10px] text-[#ef4444] font-mono tracking-wider mt-1">WAIT 15 MIN</p>}
+            
+            {/* チョコ数表示エリア（ここを修正：常に表示＆目立つように） */}
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border ${isSelected ? 'bg-[#1a1033]/20 border-[#1a1033]/30' : 'bg-[#ffd700]/10 border-[#ffd700]/30'}`}>
+                <span className="text-xs">🍫</span>
+                <span className={`text-sm font-black ${isSelected ? 'text-[#1a1033]' : 'text-[#ffd700]'}`}>{profile.received_count}</span>
+              </div>
+              
+              {/* クールダウン表示 */}
+              {cooldown && !isMe && (
+                <span className="text-[10px] text-[#ff3366] font-mono tracking-wider flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 bg-[#ff3366] rounded-full animate-ping"></span>
+                  WAIT 15m
+                </span>
+              )}
+            </div>
           </div>
+          
           <div className="flex-shrink-0">
              {!isMe && !cooldown && !isSelected && (
-               <span className={`text-xs px-3 py-1 rounded-full border transition-all ${isRanking ? 'bg-[#be123c] text-white border-[#be123c]' : 'text-[#be123c] border-[#be123c]'}`}>🎁</span>
+               <span className={`text-xl transition-all duration-300 group-hover:scale-125 group-hover:rotate-12 inline-block drop-shadow-[0_0_5px_rgba(255,215,0,0.5)]`}>🪐</span>
              )}
-             {isSelected && <span className="text-xs bg-white text-[#be123c] font-bold px-3 py-1 rounded-full animate-pulse">SET</span>}
+             {isSelected && <span className="text-xs bg-[#1a1033] text-[#ffd700] font-black px-3 py-1 rounded-full shadow-sm animate-bounce">LOCKED</span>}
           </div>
         </div>
       </div>
@@ -260,61 +243,88 @@ function GameContent({ session }: { session: any }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#1a0f0d] text-[#eaddcf] flex flex-col items-center p-4 font-sans relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-[#2b120a] via-[#1a0805] to-[#0a0403] opacity-100 z-0"></div>
-      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-[#5d4037]/20 to-transparent z-0 pointer-events-none"></div>
+    <main className="min-h-screen bg-[#0a0e1a] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1a1033] via-[#0a0e1a] to-black opacity-100 z-0"></div>
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 z-0 mix-blend-overlay"></div>
+      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-[#ffd700]/10 via-[#ff3366]/5 to-transparent z-0 pointer-events-none blur-3xl"></div>
 
       <div className="w-full max-w-lg relative z-10 pb-20">
-        <div className="text-center mb-8 pt-10">
-          <h1 className="text-4xl font-extrabold tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-[#d7ccc8] via-[#eaddcf] to-[#d7ccc8] drop-shadow-sm mb-4">
-            COSMIC<br/><span className="text-5xl text-[#be123c]">CHOCOLAT</span>
+        <div className="text-center mb-10 pt-12">
+          <h1 className="text-4xl font-extrabold tracking-[0.2em] mb-6 relative">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e6e6fa] to-[#a0a0c0]">COSMIC</span><br/>
+            <span className="text-6xl text-transparent bg-clip-text bg-gradient-to-r from-[#ffd700] via-[#ff3366] to-[#ffd700] drop-shadow-[0_0_15px_rgba(255,51,102,0.6)]">CHOCOLAT</span>
           </h1>
-          <div className="bg-[#1a0805] rounded-[11px] p-4 text-center border border-[#5d4037]/30 mx-auto max-w-xs">
-            <p className="text-[9px] text-[#a1887f] uppercase tracking-widest mb-1">Total Gifted</p>
-            <p className="text-5xl font-serif text-[#ffecb3]">{totalChocolates.toLocaleString()}</p>
+          <div className="relative group mx-auto max-w-xs">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700] to-[#ff3366] rounded-2xl blur-md opacity-50 group-hover:opacity-80 transition-opacity duration-500 animate-pulse"></div>
+            <div className="bg-[#1a1033]/90 rounded-xl p-5 text-center border border-[#ffd700]/30 relative backdrop-blur-xl">
+              <p className="text-[10px] text-[#ffd700] uppercase tracking-[0.3em] mb-1">Total Stardust Gifted</p>
+              <p className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-[#ffd700] to-[#ff6b6b] drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+                {totalChocolates.toLocaleString()}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* ランキングエリア */}
-        <div className="mb-12 animate-fade-in-up">
-          <h2 className="text-center text-[#be123c] font-bold text-sm tracking-[0.3em] mb-6">GALAXY RANKING</h2>
+        <div className="mb-12 animate-fade-in-up relative">
+          <div className="absolute inset-0 bg-gradient-to-b from-[#ffd700]/5 to-transparent blur-xl -z-10 rounded-full"></div>
+          <h2 className="text-center text-[#ffd700] font-bold text-sm tracking-[0.4em] mb-8 flex items-center justify-center gap-4">
+            <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#ffd700]"></span>
+            GALAXY RANKING
+            <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#ffd700]"></span>
+          </h2>
           <div className="px-2">
             {rankingList.map((ranker, index) => <UserCard key={ranker.id} profile={ranker} index={index} isRanking={true} />)}
           </div>
         </div>
 
-        {/* ユーザー操作エリア */}
         {!user ? (
-          <div className="text-center px-4 pb-20 animate-fade-in-up">
-            <p className="mb-8 text-sm text-[#d7ccc8]/80 leading-7 font-serif italic">劇の余韻を、一粒のチョコに込めて。</p>
-            <button onClick={signIn} className="bg-[#5865F2] text-white px-10 py-4 rounded-full font-bold shadow-lg transition-transform hover:scale-105">Discordで入場する</button>
+          <div className="text-center px-4 pb-20 animate-fade-in-up relative z-20">
+            <p className="mb-10 text-base text-[#e6e6fa]/80 leading-8 font-serif italic drop-shadow-md">
+              銀河の彼方へ、想いを乗せて。<br/>
+              コマンダーとしてログインし、<br/>キャストにエネルギーを贈りましょう。
+            </p>
+            <button onClick={signIn} className="group relative inline-flex items-center justify-center px-12 py-4 font-bold text-white transition-all duration-300 bg-[#5865F2] rounded-full hover:bg-[#4752c4] hover:scale-105 shadow-[0_0_30px_rgba(88,101,242,0.5)] overflow-hidden">
+               <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></span>
+               <span className="relative z-10 flex items-center gap-2">
+                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" role="img" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.6853-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0323 1.5864 4.0079 2.5543 5.9429 3.1686a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 00.0306-.0557c3.9437 1.8038 8.1798 1.8038 12.0583 0a.0739.0739 0 00.0305.0557c.1202.099.246.1981.3719.2914a.077.077 0 01-.0077.1277c-.5979.3428-1.2194.6447-1.8721.8923a.0756.0756 0 00-.0416.1057c.3529.699.7644 1.3638 1.226 1.9942a.0773.0773 0 00.0842.0276c1.9349-.6143 3.9106-1.5822 5.9429-3.1686a.0824.0824 0 00.0312-.0561c.493-5.4786-.6425-9.998-3.0808-13.6603a.0718.0718 0 00-.032-.0277zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.419-2.1568 2.419zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.419-2.1568 2.419z"/></svg>
+                 Discordで入場する
+               </span>
+            </button>
           </div>
         ) : (
-          <div className="animate-fade-in-up space-y-8">
-            <div className="bg-[#2b120a]/50 p-6 rounded-2xl border border-[#5d4037]/30 backdrop-blur-md mx-2">
-              <div className="flex justify-between items-center mb-4">
-                <label className="text-[10px] text-[#8d6e63] font-bold">Your Name</label>
-                <button onClick={signOut} className="text-[10px] text-[#8d6e63] underline">Logout</button>
+          <div className="animate-fade-in-up space-y-8 relative z-20">
+            <div className="bg-[#1a1033]/60 p-6 rounded-2xl border border-[#ffd700]/30 backdrop-blur-xl mx-2 shadow-[0_0_30px_rgba(26,16,51,0.5)] relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
+              <div className="flex justify-between items-center mb-4 relative z-10">
+                <label className="text-[10px] text-[#ffd700] uppercase tracking-wider block font-bold flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 bg-[#ffd700] rounded-full animate-pulse"></span>
+                  Commander Name
+                </label>
+                <button onClick={signOut} className="text-[10px] text-[#e6e6fa]/60 hover:text-[#ff3366] transition-colors underline decoration-dotted">ABORT SESSION</button>
               </div>
-              <div className="flex gap-3 items-center">
-                <input type="text" className="flex-1 bg-transparent font-bold text-xl text-[#eaddcf] border-b-2 border-[#5d4037]/50 focus:border-[#be123c] focus:outline-none" value={myProfileName} onChange={(e) => setMyProfileName(e.target.value)} />
-                <button onClick={handleUpdateName} disabled={isActionLoading} className="text-[10px] font-bold px-4 py-2 rounded-lg bg-[#be123c] text-white hover:bg-[#9f1239] transition-colors">
-                  {isActionLoading ? 'SAVING...' : 'UPDATE'}
+              <div className="flex gap-3 items-center relative z-10">
+                <input type="text" className="flex-1 bg-[#0a0e1a]/50 font-bold text-xl text-[#e6e6fa] border-b-2 border-[#ffd700]/30 focus:border-[#ff3366] focus:outline-none transition-all pb-2 px-2 rounded-t-lg focus:bg-[#0a0e1a]/80" value={myProfileName} onChange={(e) => setMyProfileName(e.target.value)} />
+                <button onClick={handleUpdateName} disabled={isActionLoading} className={`text-[10px] font-bold px-6 py-3 rounded-lg transition-all shadow-lg relative overflow-hidden group ${isActionLoading ? 'bg-[#1a1033] text-[#e6e6fa]/50 cursor-wait' : 'bg-gradient-to-r from-[#ff3366] to-[#ffd700] text-[#1a1033] hover:shadow-[0_0_15px_#ff3366]'}`}>
+                  <span className="relative z-10">{isActionLoading ? 'SYNCING...' : 'UPDATE'}</span>
+                  {!isActionLoading && <span className="absolute inset-0 bg-white/30 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>}
                 </button>
               </div>
             </div>
 
             <div>
               <div className="px-4 mb-4 flex items-center justify-between">
-                <h2 className="font-bold text-[#d7ccc8] text-sm tracking-[0.2em]">CAST MEMBERS</h2>
-                {selectedUsers.size > 0 && <span className="bg-[#be123c] text-white text-[10px] font-bold px-3 py-1 rounded-full">{selectedUsers.size} SELECTED</span>}
+                <h2 className="font-bold text-[#ffd700] text-sm tracking-[0.2em] flex items-center gap-2">
+                  <span className="text-xl">👾</span> CAST MEMBERS
+                </h2>
+                {selectedUsers.size > 0 && <span className="bg-[#ff3366] text-white text-[10px] font-bold px-4 py-1 rounded-full shadow-[0_0_10px_#ff3366] animate-bounce">{selectedUsers.size} TARGETS LOCKED</span>}
               </div>
-              <div className="px-4 mb-4">
-                <input type="text" placeholder="Search..." className="w-full px-4 py-3 rounded-xl bg-[#0a0403] text-[#eaddcf] text-sm border border-[#3e2723]/50 focus:outline-none focus:ring-2 focus:ring-[#be123c]" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+              <div className="px-4 mb-6 relative">
+                <input type="text" placeholder="Search members..." className="w-full px-5 py-4 rounded-2xl bg-[#1a1033]/80 text-[#e6e6fa] placeholder-[#e6e6fa]/30 text-sm focus:outline-none border-2 border-[#ffd700]/20 focus:border-[#ffd700]/80 focus:shadow-[0_0_15px_rgba(255,215,0,0.3)] transition-all backdrop-blur-md" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+                <span className="absolute right-8 top-1/2 -translate-y-1/2 text-[#ffd700]/50">🔍</span>
               </div>
               
-              <div className="px-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#3e2723] pb-20">
-                {filteredMembers.length === 0 ? <p className="text-center text-[#4e342e] py-12 text-xs">NO MEMBERS</p> : 
+              <div className="px-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#ffd700]/30 scrollbar-track-[#0a0e1a]/50 pb-24">
+                {filteredMembers.length === 0 ? <p className="text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">NO LIFEFORMS DETECTED</p> : 
                   filteredMembers.map((m) => <UserCard key={m.id} profile={m} />)
                 }
               </div>
@@ -322,14 +332,18 @@ function GameContent({ session }: { session: any }) {
 
             <div className="fixed bottom-6 left-0 right-0 px-6 z-50 pointer-events-none">
               <div className="max-w-lg mx-auto pointer-events-auto">
-                <button onClick={handleSend} disabled={selectedUsers.size === 0} className={`w-full py-5 rounded-2xl font-black text-base tracking-[0.2em] shadow-2xl transition-all ${selectedUsers.size === 0 ? 'bg-[#1a0805]/90 text-[#5d4037] translate-y-20 opacity-0' : 'bg-gradient-to-r from-[#9f1239] to-[#be123c] text-white'}`}>
-                  SEND CHOCOLATE ({selectedUsers.size})
+                <button onClick={handleSend} disabled={selectedUsers.size === 0} className={`w-full py-6 rounded-3xl font-black text-lg tracking-[0.2em] shadow-2xl transition-all relative overflow-hidden group border-2 ${selectedUsers.size === 0 ? 'bg-[#1a1033]/90 border-white/5 text-[#e6e6fa]/30 backdrop-blur-sm cursor-not-allowed translate-y-20 opacity-0' : 'bg-gradient-to-r from-[#ff3366] via-[#ffd700] to-[#ff3366] bg-[length:200%_auto] animate-gradient border-[#ffd700] text-[#1a1033] hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_30px_rgba(255,51,102,0.8)]'}`}>
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    LAUNCH CHOCOLATE ({selectedUsers.size}) 🚀
+                  </span>
+                  {selectedUsers.size > 0 && <div className="absolute inset-0 bg-white/40 mix-blend-overlay translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"></div>}
                 </button>
               </div>
             </div>
           </div>
         )}
       </div>
+      {user && <p className="text-center text-[10px] text-[#ffd700]/50 mt-8 font-mono tracking-widest absolute bottom-2 left-0 right-0">VOICE NOVA × COSMIC CHOCOLAT SYSTEM</p>}
     </main>
   );
 }
