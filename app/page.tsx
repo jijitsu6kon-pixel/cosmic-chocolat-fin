@@ -360,7 +360,7 @@ function GameContent({ session }: { session: any }) {
         {!user ? (
           <div className="text-center px-4 pb-20 animate-fade-in-up relative z-20">
             <p className="mb-10 text-base text-[#e6e6fa]/80 leading-8 font-serif italic drop-shadow-md">
-              銀河の彼方へ、想いを乗せて。<br/>コマンダーとしてログインし、<br/>キャストにエネルギーを贈りましょう。
+              銀河の彼方へ、想いを乗せて。<br/>クルーとしてログインし、<br/>仲間にエネルギーを贈りましょう。
             </p>
             <button onClick={signIn} className="group relative inline-flex items-center justify-center px-12 py-4 font-bold text-white transition-all duration-300 bg-[#5865F2] rounded-full hover:bg-[#4752c4] hover:scale-105 shadow-[0_0_30px_rgba(88,101,242,0.5)] overflow-hidden">
                <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></span>
