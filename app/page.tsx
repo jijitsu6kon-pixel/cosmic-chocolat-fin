@@ -206,9 +206,9 @@ function GameContent({ session }: { session: any }) {
     return <span className={`font-black text-xl ${styles[index] || "text-[#8d6e63] opacity-70"}`}>{index + 1}</span>;
   };
 
-  // 🆕 空席カード (Empty Slot)
+  // 🆕 空席カード (高さ固定 h-[104px])
   const EmptyCard = ({ index }: { index: number }) => (
-    <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border-2 border-dashed border-[#e6e6fa]/10 bg-[#1a1033]/20 select-none">
+    <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border-2 border-dashed border-[#e6e6fa]/10 bg-[#1a1033]/20 select-none h-[104px]">
        <div className="flex items-center gap-4 w-full opacity-30">
           <div className="w-8 text-center font-black text-xl text-[#8d6e63]">{index + 1}</div>
           <div className="flex-1">
@@ -218,6 +218,7 @@ function GameContent({ session }: { session: any }) {
     </div>
   );
 
+  // 🆕 ユーザーカード (高さ固定 h-[104px] で統一)
   const UserCard = ({ profile, index = -1, isRanking = false }: { profile: Profile, index?: number, isRanking?: boolean }) => {
     const isSelected = selectedUsers.has(profile.id);
     const isMe = user && profile.id === user.id;
@@ -228,7 +229,7 @@ function GameContent({ session }: { session: any }) {
       <div 
         onClick={() => !isMe && !cooldown && handleClickUser(profile.id)}
         className={`
-          relative flex items-center justify-between p-4 mb-3 rounded-2xl transition-all duration-500 border select-none backdrop-blur-md overflow-hidden group
+          relative flex items-center justify-between p-4 mb-3 rounded-2xl transition-all duration-500 border select-none backdrop-blur-md overflow-hidden group h-[104px]
           ${isMe ? 'bg-[#1a1033]/40 border-[#ffd700]/20 cursor-default' : 'cursor-pointer'}
           ${!isMe && cooldown ? 'opacity-50 grayscale cursor-not-allowed bg-[#0a0e1a]/80 border-white/5' : ''}
           ${!isMe && !cooldown && isSelected 
@@ -305,22 +306,22 @@ function GameContent({ session }: { session: any }) {
             <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#ffd700]"></span>
           </h2>
           <div className="px-2">
-            {/* ▼ 20枠固定レイアウト (Empty Slot 対応版) */}
-            <div className="flex flex-col md:flex-row-reverse gap-6 items-start">
-               {/* 右カラム（1-10位） */}
+            {/* ▼ 10枠固定・左右分割レイアウト */}
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+               {/* 左カラム（1-5位） */}
                <div className="w-full md:w-1/2 flex flex-col gap-3">
-                  <div className="hidden md:block text-center text-[#ffd700] text-xs tracking-widest mb-2 opacity-70">- TOP 10 STARS -</div>
-                  {Array.from({ length: 10 }).map((_, i) => {
+                  <div className="hidden md:block text-center text-[#ffd700] text-xs tracking-widest mb-2 opacity-70">- TOP 5 STARS -</div>
+                  {Array.from({ length: 5 }).map((_, i) => {
                      const ranker = rankingList[i];
                      return ranker ? <UserCard key={ranker.id} profile={ranker} index={i} isRanking={true} /> : <EmptyCard key={`empty-${i}`} index={i} />;
                   })}
                </div>
                
-               {/* 左カラム（11-20位） */}
+               {/* 右カラム（6-10位） */}
                <div className="w-full md:w-1/2 flex flex-col gap-3">
                   <div className="hidden md:block text-center text-[#e6e6fa] text-xs tracking-widest mb-2 opacity-50">- RISING STARS -</div>
-                  {Array.from({ length: 10 }).map((_, i) => {
-                     const rankIndex = i + 10;
+                  {Array.from({ length: 5 }).map((_, i) => {
+                     const rankIndex = i + 5;
                      const ranker = rankingList[rankIndex];
                      return ranker ? <UserCard key={ranker.id} profile={ranker} index={rankIndex} isRanking={true} /> : <EmptyCard key={`empty-${rankIndex}`} index={rankIndex} />;
                   })}
@@ -382,7 +383,7 @@ function GameContent({ session }: { session: any }) {
 
             <div className="fixed bottom-6 left-0 right-0 px-6 z-50 pointer-events-none">
               <div className="max-w-lg mx-auto pointer-events-auto">
-                <button onClick={handleSend} disabled={selectedUsers.size === 0} className={`w-full py-6 rounded-3xl font-black text-lg tracking-[0.2em] shadow-2xl transition-all relative overflow-hidden group border-2 ${selectedUsers.size === 0 ? 'bg-[#1a0e1a]/90 border-white/5 text-[#e6e6fa]/30 backdrop-blur-sm cursor-not-allowed translate-y-20 opacity-0' : 'bg-gradient-to-r from-[#ff3366] via-[#ffd700] to-[#ff3366] bg-[length:200%_auto] animate-gradient border-[#ffd700] text-[#1a1033] hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_30px_rgba(255,51,102,0.8)]'}`}>
+                <button onClick={handleSend} disabled={selectedUsers.size === 0} className={`w-full py-6 rounded-3xl font-black text-lg tracking-[0.2em] shadow-2xl transition-all relative overflow-hidden group border-2 ${selectedUsers.size === 0 ? 'bg-[#1a1033]/90 border-white/5 text-[#e6e6fa]/30 backdrop-blur-sm cursor-not-allowed translate-y-20 opacity-0' : 'bg-gradient-to-r from-[#ff3366] via-[#ffd700] to-[#ff3366] bg-[length:200%_auto] animate-gradient border-[#ffd700] text-[#1a1033] hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_30px_rgba(255,51,102,0.8)]'}`}>
                   <span className="relative z-10 flex items-center justify-center gap-2">LAUNCH CHOCOLATE ({selectedUsers.size}) 🚀</span>
                   {selectedUsers.size > 0 && <div className="absolute inset-0 bg-white/40 mix-blend-overlay translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"></div>}
                 </button>
