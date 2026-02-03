@@ -16,7 +16,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 type Profile = {
   id: string;
   display_name: string;
-  avatar_url?: string; // 🆕 アイコンURL
+  avatar_url?: string;
   last_received_at?: string;
   received_count: number;
 };
@@ -26,7 +26,7 @@ type RankTitle = {
   title: string;
 };
 
-type ActivityLog = { // 🆕 ログ用
+type ActivityLog = {
   id: number;
   created_at: string;
   quantity: number;
@@ -37,7 +37,7 @@ type ActivityLog = { // 🆕 ログ用
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント (真・無限ループ版)
+// 🌠 星空生成コンポーネント (修正版)
 // ==========================================
 const StarBackground = () => {
   const [starsSmall, setStarsSmall] = useState('');
@@ -55,6 +55,7 @@ const StarBackground = () => {
       const size = opacity > 0.8 ? 2 : 1;
       const color = `rgba(255, 255, 255, ${opacity})`;
 
+      // オリジナルの星と、ループ用のコピー（下にずらしたもの）を同時に定義
       value += `${x}px ${y}px 0px ${size}px ${color}, `;
       value += `${x}px ${y + height}px 0px ${size}px ${color}, `;
     }
@@ -69,13 +70,24 @@ const StarBackground = () => {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-[#050510]">
       <style jsx>{`
-        @keyframes animStar { from { transform: translateY(0px); } to { transform: translateY(-2000px); } }
+        @keyframes animStar { 
+          from { transform: translateY(0px); } 
+          to { transform: translateY(-2000px); } 
+        }
         @keyframes shooting {
           0% { transform: translateX(0) translateY(0) rotate(315deg); opacity: 1; }
           70% { opacity: 1; }
           100% { transform: translateX(-1000px) translateY(1000px) rotate(315deg); opacity: 0; }
         }
-        .star-layer { position: absolute; left: 0; top: 0; background: transparent; width: 2500px; height: 4000px; }
+        .star-layer { 
+          position: absolute; 
+          left: 0; 
+          top: 0; 
+          background: transparent; 
+          /* ⚠️ 修正ポイント: ここを1pxに戻しました！これでbox-shadowが「点」として描画されます */
+          width: 1px; 
+          height: 1px; 
+        }
         .shooting-star {
           position: absolute; top: 0; right: 0; width: 4px; height: 4px;
           background: #fff; border-radius: 50%;
@@ -91,6 +103,7 @@ const StarBackground = () => {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 215, 0, 0.3); border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 215, 0, 0.6); }
       `}</style>
+      
       {starsSmall && (
         <>
           <div className="star-layer" style={{ boxShadow: starsSmall, animation: 'animStar 150s linear infinite' }} />
@@ -130,10 +143,7 @@ const RocketLayer = ({ isActive, onComplete }: { isActive: boolean, onComplete: 
 const ActivityPanel = ({ isOpen, onClose, logs }: { isOpen: boolean, onClose: () => void, logs: ActivityLog[] }) => {
   return (
     <>
-      {/* 背景の暗幕 */}
       <div className={`fixed inset-0 bg-black/50 z-[80] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose}></div>
-      
-      {/* パネル本体 */}
       <div className={`fixed top-0 right-0 h-full w-80 bg-[#1a1033]/95 backdrop-blur-xl border-l border-[#ffd700]/30 z-[90] transform transition-transform duration-300 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-4 border-b border-[#ffd700]/20 flex justify-between items-center">
           <h3 className="text-[#ffd700] font-bold tracking-widest flex items-center gap-2"><span className="animate-pulse">📡</span> LOG RECORD</h3>
@@ -213,7 +223,6 @@ function GameContent({ session }: { session: any }) {
   const [myRankTitle, setMyRankTitle] = useState('見習いクルー'); 
   const [appConfig, setAppConfig] = useState<any>({});
   
-  // 🆕 ログ機能用State
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isLogOpen, setIsLogOpen] = useState(false);
 
@@ -240,8 +249,6 @@ function GameContent({ session }: { session: any }) {
     if (isMounted.current) setTotalChocolates(total);
     const { data } = await supabase.from('galaxy_ranking').select('*');
     
-    // アイコンURLも取得するためにProfileテーブルと結合（ビューに含まれていなければ補完）
-    // 今回はビューがid, display_name, received_countだけなので、別途profilesからavatarを取得してマージする
     if (isMounted.current && data) {
        const { data: profiles } = await supabase.from('profiles').select('id, avatar_url');
        const merged = data.map(rank => ({
@@ -257,11 +264,9 @@ function GameContent({ session }: { session: any }) {
     let name = user.user_metadata.full_name || 'クルー';
     let avatar = user.user_metadata.avatar_url || '';
 
-    // 🆕 ログイン時にアイコンURLもDBに保存
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
     if (profile) { 
       name = profile.display_name; 
-      // DB上のアイコンが古ければ更新
       if (profile.avatar_url !== avatar) {
          await supabase.from('profiles').update({ avatar_url: avatar }).eq('id', user.id);
       }
@@ -308,13 +313,13 @@ function GameContent({ session }: { session: any }) {
     isMounted.current = true;
     fetchConfig(); 
     fetchRanking();
-    fetchLogs(); // ログ初期取得
+    fetchLogs(); 
     if (user) fetchUserData();
     
     const channel = supabase.channel('realtime')
       .on('postgres_changes', { event: '*', schema: 'public' }, () => {
         fetchRanking(); 
-        fetchLogs(); // 何かあればログも更新
+        fetchLogs(); 
         if (user) fetchUserData();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, () => {
@@ -409,7 +414,6 @@ function GameContent({ session }: { session: any }) {
     const isMe = user && profile.id === user.id;
     const detail = memberList.find(m => m.id === profile.id); 
     const cooldown = isCooldown(detail?.last_received_at);
-    // 🆕 アイコン表示 (なければデフォルト画像)
     const avatar = profile.avatar_url || "https://www.gravatar.com/avatar?d=mp";
 
     return (
@@ -437,7 +441,6 @@ function GameContent({ session }: { session: any }) {
             )}
           </div>
           
-          {/* 🆕 アイコン追加 */}
           <div className="flex-shrink-0">
              <img src={avatar} alt="icon" className="w-12 h-12 rounded-full border-2 border-[#e6e6fa]/20 object-cover shadow-lg" />
           </div>
@@ -472,7 +475,6 @@ function GameContent({ session }: { session: any }) {
       <RocketLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
 
-      {/* 🆕 ログボタン (右側に固定) */}
       <button 
         onClick={() => setIsLogOpen(true)}
         className="fixed top-24 right-0 z-50 bg-[#1a1033]/80 border-l border-t border-b border-[#ffd700]/30 text-[#ffd700] p-3 rounded-l-xl backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:bg-[#1a1033] hover:pl-5 transition-all duration-300 group"
@@ -555,6 +557,7 @@ function GameContent({ session }: { session: any }) {
             <div className="bg-[#1a1033]/60 p-6 rounded-2xl border border-[#ffd700]/30 backdrop-blur-xl mx-2 shadow-[0_0_30px_rgba(26,16,51,0.5)] relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
               
+              {/* スターログ */}
               <div className="relative z-10 mb-4 text-center border-b border-[#ffd700]/20 pb-4">
                  <p className="text-[10px] text-[#ffd700] uppercase tracking-widest mb-1">STAR LOG</p>
                  <div className="flex items-center justify-center gap-4">
