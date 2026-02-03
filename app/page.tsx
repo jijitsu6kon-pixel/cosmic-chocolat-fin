@@ -165,7 +165,7 @@ function GameContent({ session }: { session: any }) {
   const signOut = async () => { await supabase.auth.signOut(); };
 
   // ----------------------------------------
-  // 🎨 表示パーツ (デザイン修正・視認性UP！)
+  // 🎨 表示パーツ (デザイン修正済)
   // ----------------------------------------
   const filteredMembers = memberList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
 
@@ -214,14 +214,12 @@ function GameContent({ session }: { session: any }) {
               {profile.display_name} {isMe && <span className="text-xs font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(You)</span>}
             </p>
             
-            {/* チョコ数表示エリア（ここを修正：常に表示＆目立つように） */}
             <div className="flex items-center gap-2 mt-1.5">
               <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border ${isSelected ? 'bg-[#1a1033]/20 border-[#1a1033]/30' : 'bg-[#ffd700]/10 border-[#ffd700]/30'}`}>
                 <span className="text-xs">🍫</span>
                 <span className={`text-sm font-black ${isSelected ? 'text-[#1a1033]' : 'text-[#ffd700]'}`}>{profile.received_count}</span>
               </div>
               
-              {/* クールダウン表示 */}
               {cooldown && !isMe && (
                 <span className="text-[10px] text-[#ff3366] font-mono tracking-wider flex items-center gap-1">
                   <span className="inline-block w-1.5 h-1.5 bg-[#ff3366] rounded-full animate-ping"></span>
@@ -248,7 +246,7 @@ function GameContent({ session }: { session: any }) {
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 z-0 mix-blend-overlay"></div>
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-[#ffd700]/10 via-[#ff3366]/5 to-transparent z-0 pointer-events-none blur-3xl"></div>
 
-      <div className="w-full max-w-lg relative z-10 pb-20">
+      <div className="w-full max-w-4xl relative z-10 pb-20"> {/* 幅を広げました (max-w-lg -> max-w-4xl) */}
         <div className="text-center mb-10 pt-12">
           <h1 className="text-4xl font-extrabold tracking-[0.2em] mb-6 relative">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e6e6fa] to-[#a0a0c0]">COSMIC</span><br/>
@@ -265,6 +263,7 @@ function GameContent({ session }: { session: any }) {
           </div>
         </div>
 
+        {/* ランキングエリア (2列表示に対応) */}
         <div className="mb-12 animate-fade-in-up relative">
           <div className="absolute inset-0 bg-gradient-to-b from-[#ffd700]/5 to-transparent blur-xl -z-10 rounded-full"></div>
           <h2 className="text-center text-[#ffd700] font-bold text-sm tracking-[0.4em] mb-8 flex items-center justify-center gap-4">
@@ -272,8 +271,33 @@ function GameContent({ session }: { session: any }) {
             GALAXY RANKING
             <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#ffd700]"></span>
           </h2>
+          
           <div className="px-2">
-            {rankingList.map((ranker, index) => <UserCard key={ranker.id} profile={ranker} index={index} isRanking={true} />)}
+            {rankingList.length === 0 ? (
+              <p className="text-center text-[#e6e6fa]/40 py-8 text-xs">Loading...</p>
+            ) : (
+              // ▼ ここが変更点: 2列レイアウト & 右上位配置
+              <div className="flex flex-col md:flex-row-reverse gap-6 items-start">
+                 {/* 右カラム（1-10位）*/}
+                 <div className="w-full md:w-1/2 flex flex-col gap-3">
+                    {/* 上位ラベル（PCのみ表示） */}
+                    <div className="hidden md:block text-center text-[#ffd700] text-xs tracking-widest mb-2 opacity-70">- TOP 10 STARS -</div>
+                    {rankingList.slice(0, 10).map((ranker, index) => (
+                       <UserCard key={ranker.id} profile={ranker} index={index} isRanking={true} />
+                    ))}
+                 </div>
+
+                 {/* 左カラム（11-20位）*/}
+                 {rankingList.length > 10 && (
+                   <div className="w-full md:w-1/2 flex flex-col gap-3">
+                      <div className="hidden md:block text-center text-[#e6e6fa] text-xs tracking-widest mb-2 opacity-50">- RISING STARS -</div>
+                      {rankingList.slice(10, 20).map((ranker, index) => (
+                         <UserCard key={ranker.id} profile={ranker} index={index + 10} isRanking={true} />
+                      ))}
+                   </div>
+                 )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -292,7 +316,7 @@ function GameContent({ session }: { session: any }) {
             </button>
           </div>
         ) : (
-          <div className="animate-fade-in-up space-y-8 relative z-20">
+          <div className="animate-fade-in-up space-y-8 relative z-20 max-w-lg mx-auto">
             <div className="bg-[#1a1033]/60 p-6 rounded-2xl border border-[#ffd700]/30 backdrop-blur-xl mx-2 shadow-[0_0_30px_rgba(26,16,51,0.5)] relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
               <div className="flex justify-between items-center mb-4 relative z-10">
