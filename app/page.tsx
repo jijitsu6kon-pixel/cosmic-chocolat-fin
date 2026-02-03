@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { useEffect, useState, useRef, useCallback } from 'react';
 
 // ==========================================
-// ⚙️ 設定
+// ⚙️ 設定 & クライアント作成
 // ==========================================
 const supabaseUrl = 'https://cghuhjiwbjtvgulmldgv.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnaHVoaml3Ymp0dmd1bG1sZGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4ODUwMzEsImV4cCI6MjA4NTQ2MTAzMX0.qW8lkhppWdRf3k-1o3t4QdR7RJCMwLW7twX37RrSDQQ';
@@ -33,36 +33,49 @@ export default function CosmicChocolat() {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   
   const [loading, setLoading] = useState(true); 
+  const [userLoading, setUserLoading] = useState(false);
   const [updatingName, setUpdatingName] = useState(false);
 
   const isMounted = useRef(true);
 
   // ==========================================
-  // 🔄 データ取得 (RPC使用で超軽量化)
+  // 🔄 データ取得ロジック
   // ==========================================
 
-  // A. 【ランキング】DB側で計算済みのデータを取るだけ
-  const fetchRanking = useCallback(async () => {
+  // A. 【公開データ】
+  const fetchPublicData = useCallback(async () => {
     try {
-      // 合計数
-      const { count } = await supabase.from('chocolates').select('*', { count: 'exact', head: true });
-      if (isMounted.current) setTotalChocolates(count || 0);
+      const countRes = await supabase.from('chocolates').select('*', { count: 'exact', head: true });
+      if (isMounted.current) setTotalChocolates(countRes.count || 0);
 
-      // ランキング (RPC呼び出し)
-      const { data, error } = await supabase.rpc('get_ranking');
-      if (error) throw error;
-      
-      if (isMounted.current && data) {
-        setRankingList(data);
+      const { data: profiles } = await supabase.from('profiles').select('id, display_name');
+      const { data: allChocos } = await supabase.from('chocolates').select('receiver_id');
+
+      if (profiles && allChocos) {
+        const countMap: Record<string, number> = {};
+        allChocos.forEach((c: any) => {
+          countMap[c.receiver_id] = (countMap[c.receiver_id] || 0) + 1;
+        });
+
+        const ranked = profiles.map(p => ({
+          ...p,
+          received_count: countMap[p.id] || 0,
+        }));
+
+        ranked.sort((a, b) => b.received_count - a.received_count);
+        if (isMounted.current) setRankingList(ranked.slice(0, 20));
       }
-    } catch (e) {
-      console.error("Ranking Error:", e);
-    }
+    } catch (e) {}
   }, []);
 
-  // B. 【メンバーリスト】必要な分だけ取得
+  // B. 【ユーザーデータ】（タイムアウト機能付き）
   const fetchUserData = useCallback(async (currentUser: any) => {
-    try {
+    if (!isMounted.current) return;
+
+    // 3秒経っても終わらなければ諦めるPromiseを作る
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000));
+
+    const fetchDataPromise = async () => {
       // 1. プロフィール確保
       let myName = currentUser.user_metadata.full_name || '劇団員';
       const { data: myProfile } = await supabase.from('profiles').select('display_name').eq('id', currentUser.id).maybeSingle();
@@ -74,31 +87,23 @@ export default function CosmicChocolat() {
       }
       if (isMounted.current) setProfileName(myName);
 
-      // 2. リスト取得（自分以外）
-      const { data: profiles } = await supabase.from('profiles').select('id, display_name').neq('id', currentUser.id);
-      
-      // 3. 受信数（全データではなく、RPCで計算済みのものを利用も可能だが、ここでは簡易集計）
-      // ※さらに軽くするならここもRPC化できますが、一旦ランキングRPCだけで十分軽くなります
-      const { data: allChocos } = await supabase.from('chocolates').select('receiver_id');
-      
-      // 4. 自分の送信履歴
-      const { data: myHistory } = await supabase.from('chocolates')
-        .select('receiver_id, created_at')
-        .eq('sender_id', currentUser.id);
+      // 2. リスト取得
+      const [profilesRes, allChocosRes, myHistoryRes] = await Promise.all([
+        supabase.from('profiles').select('id, display_name').neq('id', currentUser.id),
+        supabase.from('chocolates').select('receiver_id'),
+        supabase.from('chocolates').select('receiver_id, created_at').eq('sender_id', currentUser.id).order('created_at', { ascending: false })
+      ]);
 
-      if (profiles && allChocos && myHistory) {
+      if (profilesRes.data) {
         const countMap: Record<string, number> = {};
-        allChocos.forEach((c: any) => { countMap[c.receiver_id] = (countMap[c.receiver_id] || 0) + 1; });
+        allChocosRes.data?.forEach((c: any) => { countMap[c.receiver_id] = (countMap[c.receiver_id] || 0) + 1; });
 
         const lastSentMap = new Map();
-        myHistory.forEach((h: any) => {
-          // 最新の履歴だけ保持
-          if (!lastSentMap.has(h.receiver_id) || new Date(lastSentMap.get(h.receiver_id)) < new Date(h.created_at)) {
-            lastSentMap.set(h.receiver_id, h.created_at);
-          }
+        myHistoryRes.data?.forEach((h: any) => {
+          if (!lastSentMap.has(h.receiver_id)) lastSentMap.set(h.receiver_id, h.created_at);
         });
 
-        const merged = profiles.map(p => ({
+        const merged = profilesRes.data.map(p => ({
           ...p,
           received_count: countMap[p.id] || 0,
           last_received_at: lastSentMap.get(p.id) || null
@@ -107,68 +112,100 @@ export default function CosmicChocolat() {
         merged.sort((a, b) => b.received_count - a.received_count);
         if (isMounted.current) setAllProfiles(merged);
       }
+    };
+
+    try {
+      // 競争させる
+      await Promise.race([fetchDataPromise(), timeoutPromise]);
     } catch (e) {
-      console.error("User Data Error:", e);
+      console.warn("User data fetch timed out or failed (Non-critical)");
     }
   }, []);
 
   // ==========================================
-  // 🚀 初期化 & 認証監視 (厳密版)
+  // 🚀 初期化 & 監視（ここを強化！）
   // ==========================================
   useEffect(() => {
     isMounted.current = true;
 
-    // 1. まずランキングだけは即表示（ログイン関係なし）
-    fetchRanking();
+    // 1. 初期化シーケンス（ここを確実に実行）
+    const initialize = async () => {
+      try {
+        await fetchPublicData();
 
-    // 2. 「Discordから戻ってきたか？」の判定
-    // URLに '#' がある場合は、認証処理中なのでロードを強制継続する
-    const isRedirecting = window.location.hash.includes('access_token');
-    if (!isRedirecting) {
-      // リダイレクト中でなければ、一旦ロード解除を試みる（あとでUserがいれば再ロード）
-      // これにより、初回訪問時（ハッシュなし）は即座に画面が出る
-      setLoading(true); // 初期はTrue
-    }
+        // ここで getSession を使うが、エラーが出ても無視して進む（try-catch）
+        // これにより「リロード時のセッション確認」を確実に行う
+        const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+        
+        if (isMounted.current) {
+          if (data?.session?.user) {
+            setUser(data.session.user);
+            await fetchUserData(data.session.user);
+          }
+        }
+      } catch (e) {
+        // 何か起きてもロードは解除する
+      } finally {
+        if (isMounted.current) {
+          setLoading(false);
+          setUserLoading(false);
+        }
+      }
+    };
 
-    // 3. 認証監視
+    initialize();
+
+    // 2. 認証監視 (ログイン・ログアウトの変化検知)
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted.current) return;
-      console.log("Auth State:", event); // デバッグ
 
       const currentUser = session?.user ?? null;
+      
+      // すでにセットされているユーザーと同じなら何もしない（ループ防止）
+      if (currentUser?.id === user?.id) return;
+
       setUser(currentUser);
 
       if (currentUser) {
-        // ログイン成功！データ取得開始
-        // ここではローディングを出す
+        // ユーザーが切り替わったのでデータ取得
+        setUserLoading(true);
         await fetchUserData(currentUser);
-        if (isMounted.current) setLoading(false);
-      } else {
-        // 未ログイン状態
-        // もしリダイレクト中（ハッシュあり）なら、まだロードを消さない！
-        // ハッシュがなければ、ロード終了
-        if (!window.location.hash.includes('access_token')) {
-          if (isMounted.current) setLoading(false);
-        }
+        if (isMounted.current) setUserLoading(false);
       }
     });
 
-    // 4. リアルタイム更新
+    // 3. リアルタイム更新
     const channel = supabase
       .channel('schema-db-changes')
       .on('postgres_changes', { event: '*', schema: 'public' }, () => {
         if (!isMounted.current) return;
-        fetchRanking(); // 軽いので頻繁に叩いても大丈夫
-        if (user) fetchUserData(user);
+        fetchPublicData();
+        // userステートが最新でない可能性があるため、安全にセッション確認してから更新
+        supabase.auth.getSession().then(({ data }) => {
+          if (data.session?.user && isMounted.current) {
+            fetchUserData(data.session.user);
+          }
+        });
       })
       .subscribe();
 
+    // 🚨 最終安全装置 (3秒ルール)
+    // リロードで通信が詰まっても、3秒後には必ず画面を開放する
+    const safetyTimer = setTimeout(() => {
+      if (isMounted.current && (loading || userLoading)) {
+        console.log("Safety timer triggered: Force unlock");
+        setLoading(false);
+        setUserLoading(false);
+      }
+    }, 3000);
+
     return () => {
       isMounted.current = false;
+      clearTimeout(safetyTimer);
       authListener.subscription.unsubscribe();
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, []); 
 
   // ==========================================
   // 🎮 アクション
@@ -200,7 +237,6 @@ export default function CosmicChocolat() {
   const sendBatchChocolates = async () => {
     if (selectedUsers.size === 0 || !user) return;
     
-    // UI先行更新（体感速度アップ）
     alert(`💝 ${selectedUsers.size}人にチョコを贈りました！`);
     setSelectedUsers(new Set());
 
@@ -209,11 +245,11 @@ export default function CosmicChocolat() {
       receiver_id: receiverId
     }));
 
-    // 裏で送信
     supabase.from('chocolates').insert(updates).then(({ error }) => {
       if (error) console.error(error);
       else {
-        fetchRanking();
+        fetchPublicData();
+        // 自分の履歴を更新するために再取得
         fetchUserData(user);
       }
     });
@@ -228,24 +264,29 @@ export default function CosmicChocolat() {
     setRankingList(prev => prev.map(p => p.id === user.id ? { ...p, display_name: newName } : p));
     setAllProfiles(prev => prev.map(p => p.id === user.id ? { ...p, display_name: newName } : p));
 
+    // タイムアウト付き更新処理
+    const updatePromise = supabase.from('profiles').upsert({ id: user.id, display_name: newName });
+    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 2000));
+
     try {
-      await supabase.from('profiles').upsert({ id: user.id, display_name: newName });
+      await Promise.race([updatePromise, timeoutPromise]);
     } catch (e) {
       console.error(e);
     } finally {
-      setTimeout(() => { if (isMounted.current) setUpdatingName(false); }, 500);
+      if (isMounted.current) setUpdatingName(false);
     }
   };
 
   const signIn = () => supabase.auth.signInWithOAuth({ provider: 'discord', options: { queryParams: { prompt: 'consent' } } });
   
   const signOut = async () => { 
-    // UI先行ログアウト
-    setUser(null);
-    setProfileName('');
-    setSelectedUsers(new Set());
-    setAllProfiles([]);
-    // 裏で処理
+    // UI即時ログアウト
+    if (isMounted.current) { 
+      setUser(null); 
+      setProfileName(''); 
+      setSelectedUsers(new Set()); 
+      setAllProfiles([]);
+    } 
     await supabase.auth.signOut(); 
   };
 
@@ -353,7 +394,7 @@ export default function CosmicChocolat() {
           </h2>
           <div className="px-2">
             {rankingList.length === 0 ? (
-              <p className="text-center text-xs text-[#5d4037] py-8">{loading ? 'Loading...' : 'No data available yet'}</p>
+              <p className="text-center text-xs text-[#5d4037] py-8">{loading ? 'Loading Ranking...' : 'No data available yet'}</p>
             ) : (
               rankingList.map((ranker, index) => <CardItem key={ranker.id} profile={ranker} index={index} isRanking={true} />)
             )}
@@ -362,13 +403,15 @@ export default function CosmicChocolat() {
 
         {!user ? (
           <div className="text-center animate-fade-in-up px-4 pb-20">
-            {loading ? <div className="py-10 animate-pulse"><p className="text-[#8d6e63] text-xs tracking-[0.3em]">VERIFYING...</p></div> : (
+            {loading ? <div className="py-10 animate-pulse"><p className="text-[#8d6e63] text-xs tracking-[0.3em]">CONNECTING...</p></div> : (
               <>
                 <p className="mb-8 text-sm text-[#d7ccc8]/80 leading-7 font-serif italic">劇の余韻を、一粒のチョコに込めて。<br/>ログインして劇団員に感謝を贈りましょう。</p>
                 <button onClick={signIn} className="bg-[#5865F2] text-white px-10 py-4 rounded-full font-bold shadow-[0_10px_30px_rgba(88,101,242,0.4)] transition-all hover:scale-105 active:scale-95 text-base tracking-wide">Discordで入場する</button>
               </>
             )}
           </div>
+        ) : userLoading ? (
+          <div className="text-center py-10 animate-pulse"><p className="text-[#8d6e63] text-xs tracking-[0.3em]">LOADING PROFILE...</p></div>
         ) : (
           <div className="animate-fade-in-up space-y-8">
             <div className="bg-[#2b120a]/50 p-6 rounded-2xl border border-[#5d4037]/30 backdrop-blur-md mx-2">
