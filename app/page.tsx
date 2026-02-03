@@ -37,7 +37,7 @@ type ActivityLog = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント (修正版)
+// 🌠 星空生成コンポーネント (省エネ対策・完全版)
 // ==========================================
 const StarBackground = () => {
   const [starsSmall, setStarsSmall] = useState('');
@@ -46,7 +46,7 @@ const StarBackground = () => {
   const generateStars = (count: number) => {
     let value = '';
     const height = 2000; 
-    const width = 2500; 
+    const width = 3000; // 3000pxに拡張して右端切れを防ぐ
 
     for (let i = 0; i < count; i++) {
       const x = Math.floor(Math.random() * width);
@@ -55,7 +55,6 @@ const StarBackground = () => {
       const size = opacity > 0.8 ? 2 : 1;
       const color = `rgba(255, 255, 255, ${opacity})`;
 
-      // オリジナルの星と、ループ用のコピー（下にずらしたもの）を同時に定義
       value += `${x}px ${y}px 0px ${size}px ${color}, `;
       value += `${x}px ${y + height}px 0px ${size}px ${color}, `;
     }
@@ -63,8 +62,8 @@ const StarBackground = () => {
   };
 
   useEffect(() => {
-    setStarsSmall(generateStars(200));
-    setStarsMedium(generateStars(50));
+    setStarsSmall(generateStars(300)); // 数を調整
+    setStarsMedium(generateStars(100));
   }, []);
 
   return (
@@ -84,9 +83,9 @@ const StarBackground = () => {
           left: 0; 
           top: 0; 
           background: transparent; 
-          /* ⚠️ 修正ポイント: ここを1pxに戻しました！これでbox-shadowが「点」として描画されます */
-          width: 1px; 
-          height: 1px; 
+          /* ⚠️ 修正: 1pxではなく巨大なサイズにして、ブラウザに「まだ画面にあるよ」と認識させる */
+          width: 3000px; 
+          height: 4000px; 
         }
         .shooting-star {
           position: absolute; top: 0; right: 0; width: 4px; height: 4px;
@@ -485,7 +484,6 @@ function GameContent({ session }: { session: any }) {
 
       <StarBackground />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1a1033]/30 via-[#0a0e1a]/80 to-black z-0"></div>
-      
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-[#ffd700]/5 via-[#ff3366]/5 to-transparent z-0 pointer-events-none blur-3xl"></div>
 
       <div className="w-full max-w-4xl relative z-10 pb-20">
@@ -505,42 +503,9 @@ function GameContent({ session }: { session: any }) {
           </div>
         </div>
 
-        <div className="mb-12 animate-fade-in-up relative">
-          <div className="absolute inset-0 bg-gradient-to-b from-[#ffd700]/5 to-transparent blur-xl -z-10 rounded-full"></div>
-          
-          <div className="transform scale-[0.7] origin-top">
-            <h2 className="text-center text-[#ffd700] font-bold text-sm tracking-[0.4em] mb-8 flex items-center justify-center gap-4">
-              <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#ffd700]"></span>
-              GALAXY RANKING
-              <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#ffd700]"></span>
-            </h2>
-            
-            <div className="px-2">
-              <div className="flex flex-col md:flex-row gap-6 items-start">
-                 <div className="w-full md:w-1/2 flex flex-col gap-3">
-                    <div className="hidden md:block text-center text-[#ffd700] text-xs tracking-widest mb-2 opacity-70">- TOP 5 STARS -</div>
-                    {Array.from({ length: 5 }).map((_, i) => {
-                       const ranker = rankingList[i];
-                       return ranker ? <UserCard key={ranker.id} profile={ranker} index={i} isRanking={true} /> : <EmptyCard key={`empty-${i}`} index={i} />;
-                    })}
-                 </div>
-                 
-                 <div className="w-full md:w-1/2 flex flex-col gap-3">
-                    <div className="hidden md:block text-center text-[#e6e6fa] text-xs tracking-widest mb-2 opacity-50">- NEXT STARS -</div>
-                    {Array.from({ length: 5 }).map((_, i) => {
-                       const rankIndex = i + 5;
-                       const ranker = rankingList[rankIndex];
-                       return ranker ? <UserCard key={ranker.id} profile={ranker} index={rankIndex} isRanking={true} /> : <EmptyCard key={`empty-${rankIndex}`} index={rankIndex} />;
-                    })}
-                 </div>
-              </div>
-            </div>
-          </div>
-          <div className="-mt-32 md:-mt-48"></div>
-        </div>
-
+        {/* 🔄 配置変更: ログイン/操作エリアを先に表示 */}
         {!user ? (
-          <div className="text-center px-4 pb-20 animate-fade-in-up relative z-20">
+          <div className="text-center px-4 pb-12 animate-fade-in-up relative z-20">
             <p className="mb-10 text-base text-[#e6e6fa]/80 leading-8 font-serif italic drop-shadow-md">
               銀河の彼方へ、想いを乗せて。<br/>クルーとしてログインし、<br/>仲間にショコラを届けよう。
             </p>
@@ -553,11 +518,10 @@ function GameContent({ session }: { session: any }) {
             </button>
           </div>
         ) : (
-          <div className="animate-fade-in-up space-y-8 relative z-20 max-w-lg mx-auto">
+          <div className="animate-fade-in-up space-y-8 relative z-20 max-w-lg mx-auto mb-20">
             <div className="bg-[#1a1033]/60 p-6 rounded-2xl border border-[#ffd700]/30 backdrop-blur-xl mx-2 shadow-[0_0_30px_rgba(26,16,51,0.5)] relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
               
-              {/* スターログ */}
               <div className="relative z-10 mb-4 text-center border-b border-[#ffd700]/20 pb-4">
                  <p className="text-[10px] text-[#ffd700] uppercase tracking-widest mb-1">STAR LOG</p>
                  <div className="flex items-center justify-center gap-4">
@@ -618,6 +582,42 @@ function GameContent({ session }: { session: any }) {
             </div>
           </div>
         )}
+
+        {/* 🔄 配置変更: ランキングを後ろへ */}
+        <div className="mb-12 animate-fade-in-up relative">
+          <div className="absolute inset-0 bg-gradient-to-b from-[#ffd700]/5 to-transparent blur-xl -z-10 rounded-full"></div>
+          
+          <div className="transform scale-[0.7] origin-top">
+            <h2 className="text-center text-[#ffd700] font-bold text-sm tracking-[0.4em] mb-8 flex items-center justify-center gap-4">
+              <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#ffd700]"></span>
+              GALAXY RANKING
+              <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#ffd700]"></span>
+            </h2>
+            
+            <div className="px-2">
+              <div className="flex flex-col md:flex-row gap-6 items-start">
+                 <div className="w-full md:w-1/2 flex flex-col gap-3">
+                    <div className="hidden md:block text-center text-[#ffd700] text-xs tracking-widest mb-2 opacity-70">- TOP 5 STARS -</div>
+                    {Array.from({ length: 5 }).map((_, i) => {
+                       const ranker = rankingList[i];
+                       return ranker ? <UserCard key={ranker.id} profile={ranker} index={i} isRanking={true} /> : <EmptyCard key={`empty-${i}`} index={i} />;
+                    })}
+                 </div>
+                 
+                 <div className="w-full md:w-1/2 flex flex-col gap-3">
+                    <div className="hidden md:block text-center text-[#e6e6fa] text-xs tracking-widest mb-2 opacity-50">- NEXT STARS -</div>
+                    {Array.from({ length: 5 }).map((_, i) => {
+                       const rankIndex = i + 5;
+                       const ranker = rankingList[rankIndex];
+                       return ranker ? <UserCard key={ranker.id} profile={ranker} index={rankIndex} isRanking={true} /> : <EmptyCard key={`empty-${rankIndex}`} index={rankIndex} />;
+                    })}
+                 </div>
+              </div>
+            </div>
+          </div>
+          <div className="-mt-32 md:-mt-48"></div>
+        </div>
+
       </div>
       {user && <p className="text-center text-[10px] text-[#ffd700]/50 mt-8 font-mono tracking-widest absolute bottom-2 left-0 right-0">VOICE NOVA × COSMIC CHOCOLAT SYSTEM</p>}
     </main>
