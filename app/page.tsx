@@ -21,7 +21,7 @@ type Profile = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント
+// 🌠 星空 & 流れ星 コンポーネント (心つかまれる演出)
 // ==========================================
 const StarBackground = () => {
   const generateStars = (count: number) => {
@@ -29,24 +29,57 @@ const StarBackground = () => {
     for (let i = 0; i < count; i++) {
       const x = Math.floor(Math.random() * 2000);
       const y = Math.floor(Math.random() * 2000);
-      value += `${x}px ${y}px #FFF, `;
+      const opacity = Math.random();
+      // 星を少し大きく、白く輝かせる
+      value += `${x}px ${y}px 0px ${opacity > 0.8 ? 2 : 1}px rgba(255, 255, 255, ${opacity}), `;
     }
     return value.slice(0, -2);
   };
-  const [starsSmall] = useState(() => generateStars(700));
-  const [starsMedium] = useState(() => generateStars(200));
-  const [starsLarge] = useState(() => generateStars(100));
+  const [starsSmall] = useState(() => generateStars(400)); // 数を調整
+  const [starsMedium] = useState(() => generateStars(100));
 
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
       <style jsx>{`
         @keyframes animStar { from { transform: translateY(0px); } to { transform: translateY(-2000px); } }
-        .star-layer { width: 1px; height: 1px; background: transparent; }
+        @keyframes shooting {
+          0% { transform: translateX(0) translateY(0) rotate(315deg); opacity: 1; }
+          70% { opacity: 1; }
+          100% { transform: translateX(-1000px) translateY(1000px) rotate(315deg); opacity: 0; }
+        }
+        .star-layer { background: transparent; }
+        /* 流れ星の設定 */
+        .shooting-star {
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 4px;
+          height: 4px;
+          background: #fff;
+          border-radius: 50%;
+          box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1), 0 0 0 8px rgba(255, 255, 255, 0.1), 0 0 20px rgba(255, 255, 255, 1);
+          animation: shooting 7s linear infinite;
+          opacity: 0;
+        }
+        .shooting-star::before {
+          content: '';
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 300px;
+          height: 1px;
+          background: linear-gradient(90deg, #fff, transparent);
+        }
       `}</style>
-      <div className="star-layer absolute top-0 left-0" style={{ boxShadow: starsSmall, animation: 'animStar 100s linear infinite' }} />
-      <div className="star-layer absolute top-0 left-0" style={{ boxShadow: starsSmall, animation: 'animStar 100s linear infinite', transform: 'translateY(2000px)' }} />
-      <div className="star-layer absolute top-0 left-0" style={{ width: '2px', height: '2px', boxShadow: starsMedium, animation: 'animStar 50s linear infinite' }} />
-      <div className="star-layer absolute top-0 left-0" style={{ width: '3px', height: '3px', boxShadow: starsLarge, animation: 'animStar 25s linear infinite' }} />
+      
+      {/* 瞬く星々 */}
+      <div className="star-layer absolute top-0 left-0 w-[1px] h-[1px]" style={{ boxShadow: starsSmall, animation: 'animStar 150s linear infinite' }} />
+      <div className="star-layer absolute top-0 left-0 w-[1px] h-[1px]" style={{ boxShadow: starsSmall, animation: 'animStar 150s linear infinite', transform: 'translateY(2000px)' }} />
+      <div className="star-layer absolute top-0 left-0 w-[2px] h-[2px]" style={{ boxShadow: starsMedium, animation: 'animStar 100s linear infinite' }} />
+      
+      {/* 流れ星 (7秒に1回流れる) */}
+      <div className="shooting-star" style={{ top: '10%', right: '20%', animationDelay: '2s' }}></div>
+      <div className="shooting-star" style={{ top: '30%', right: '0%', animationDelay: '5s' }}></div>
     </div>
   );
 };
@@ -70,9 +103,10 @@ export default function CosmicChocolatApp() {
 
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center overflow-hidden relative">
+      <div className="min-h-screen bg-[#050510] flex items-center justify-center overflow-hidden relative">
         <StarBackground />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a1033] via-[#0a0e1a] to-black opacity-80 z-0"></div>
+        {/* 背景グラデーションを薄くして星を見えやすくする */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a1033]/40 via-[#0a0e1a]/60 to-black/80 z-0"></div>
         <div className="text-center relative z-10">
           <div className="relative w-24 h-24 mx-auto mb-8">
             <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700] to-[#ff3366] rounded-full animate-ping opacity-20"></div>
@@ -206,19 +240,15 @@ function GameContent({ session }: { session: any }) {
     return <span className={`font-black text-xl ${styles[index] || "text-[#8d6e63] opacity-70"}`}>{index + 1}</span>;
   };
 
-  // 🆕 空席カード (高さ固定 h-[104px])
   const EmptyCard = ({ index }: { index: number }) => (
     <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border-2 border-dashed border-[#e6e6fa]/10 bg-[#1a1033]/20 select-none h-[104px]">
        <div className="flex items-center gap-4 w-full opacity-30">
           <div className="w-8 text-center font-black text-xl text-[#8d6e63]">{index + 1}</div>
-          <div className="flex-1">
-             <p className="font-bold text-base text-[#e6e6fa] tracking-widest text-xs">NO DATA</p>
-          </div>
+          <div className="flex-1"><p className="font-bold text-base text-[#e6e6fa] tracking-widest text-xs">NO DATA</p></div>
        </div>
     </div>
   );
 
-  // 🆕 ユーザーカード (高さ固定 h-[104px] で統一)
   const UserCard = ({ profile, index = -1, isRanking = false }: { profile: Profile, index?: number, isRanking?: boolean }) => {
     const isSelected = selectedUsers.has(profile.id);
     const isMe = user && profile.id === user.id;
@@ -241,7 +271,6 @@ function GameContent({ session }: { session: any }) {
         `}
       >
         {isSelected && <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#ffd700]/20 to-transparent opacity-50 animate-pulse"></div>}
-        
         <div className="flex items-center gap-4 overflow-hidden w-full relative z-10">
           <div className="flex-shrink-0 w-8 text-center flex justify-center">
             {isRanking ? <RankBadge index={index} /> : (
@@ -276,13 +305,17 @@ function GameContent({ session }: { session: any }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#0a0e1a] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
+    <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
+      {/* 🌌 星空とネビュラ */}
       <StarBackground />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1a1033] via-[#0a0e1a] to-black opacity-100 z-0"></div>
-      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-[#ffd700]/10 via-[#ff3366]/5 to-transparent z-0 pointer-events-none blur-3xl"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1a1033]/30 via-[#0a0e1a]/80 to-black z-0"></div>
+      
+      {/* 画面上部の光の演出 */}
+      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-[#ffd700]/5 via-[#ff3366]/5 to-transparent z-0 pointer-events-none blur-3xl"></div>
 
       <div className="w-full max-w-4xl relative z-10 pb-20">
-        <div className="text-center mb-10 pt-12">
+        {/* ヘッダーエリア */}
+        <div className="text-center mb-6 pt-12">
           <h1 className="text-4xl font-extrabold tracking-[0.2em] mb-6 relative">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e6e6fa] to-[#a0a0c0]">COSMIC</span><br/>
             <span className="text-6xl text-transparent bg-clip-text bg-gradient-to-r from-[#ffd700] via-[#ff3366] to-[#ffd700] drop-shadow-[0_0_15px_rgba(255,51,102,0.6)]">CHOCOLAT</span>
@@ -298,36 +331,44 @@ function GameContent({ session }: { session: any }) {
           </div>
         </div>
 
+        {/* 🏆 ランキングエリア (70%縮小 & 左右分割) */}
         <div className="mb-12 animate-fade-in-up relative">
           <div className="absolute inset-0 bg-gradient-to-b from-[#ffd700]/5 to-transparent blur-xl -z-10 rounded-full"></div>
-          <h2 className="text-center text-[#ffd700] font-bold text-sm tracking-[0.4em] mb-8 flex items-center justify-center gap-4">
-            <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#ffd700]"></span>
-            GALAXY RANKING
-            <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#ffd700]"></span>
-          </h2>
-          <div className="px-2">
-            {/* ▼ 10枠固定・左右分割レイアウト */}
-            <div className="flex flex-col md:flex-row gap-6 items-start">
-               {/* 左カラム（1-5位） */}
-               <div className="w-full md:w-1/2 flex flex-col gap-3">
-                  <div className="hidden md:block text-center text-[#ffd700] text-xs tracking-widest mb-2 opacity-70">- TOP 5 STARS -</div>
-                  {Array.from({ length: 5 }).map((_, i) => {
-                     const ranker = rankingList[i];
-                     return ranker ? <UserCard key={ranker.id} profile={ranker} index={i} isRanking={true} /> : <EmptyCard key={`empty-${i}`} index={i} />;
-                  })}
-               </div>
-               
-               {/* 右カラム（6-10位） */}
-               <div className="w-full md:w-1/2 flex flex-col gap-3">
-                  <div className="hidden md:block text-center text-[#e6e6fa] text-xs tracking-widest mb-2 opacity-50">- RISING STARS -</div>
-                  {Array.from({ length: 5 }).map((_, i) => {
-                     const rankIndex = i + 5;
-                     const ranker = rankingList[rankIndex];
-                     return ranker ? <UserCard key={ranker.id} profile={ranker} index={rankIndex} isRanking={true} /> : <EmptyCard key={`empty-${rankIndex}`} index={rankIndex} />;
-                  })}
-               </div>
+          
+          {/* 70%サイズに縮小して中央寄せ */}
+          <div className="transform scale-[0.7] origin-top">
+            <h2 className="text-center text-[#ffd700] font-bold text-sm tracking-[0.4em] mb-8 flex items-center justify-center gap-4">
+              <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#ffd700]"></span>
+              GALAXY RANKING
+              <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#ffd700]"></span>
+            </h2>
+            
+            <div className="px-2">
+              {/* 左右分割レイアウト (左:1-5位, 右:6-10位) */}
+              <div className="flex flex-col md:flex-row gap-6 items-start">
+                 {/* 左カラム（1-5位） */}
+                 <div className="w-full md:w-1/2 flex flex-col gap-3">
+                    <div className="hidden md:block text-center text-[#ffd700] text-xs tracking-widest mb-2 opacity-70">- TOP 5 STARS -</div>
+                    {Array.from({ length: 5 }).map((_, i) => {
+                       const ranker = rankingList[i];
+                       return ranker ? <UserCard key={ranker.id} profile={ranker} index={i} isRanking={true} /> : <EmptyCard key={`empty-${i}`} index={i} />;
+                    })}
+                 </div>
+                 
+                 {/* 右カラム（6-10位） */}
+                 <div className="w-full md:w-1/2 flex flex-col gap-3">
+                    <div className="hidden md:block text-center text-[#e6e6fa] text-xs tracking-widest mb-2 opacity-50">- NEXT STARS -</div>
+                    {Array.from({ length: 5 }).map((_, i) => {
+                       const rankIndex = i + 5;
+                       const ranker = rankingList[rankIndex];
+                       return ranker ? <UserCard key={ranker.id} profile={ranker} index={rankIndex} isRanking={true} /> : <EmptyCard key={`empty-${rankIndex}`} index={rankIndex} />;
+                    })}
+                 </div>
+              </div>
             </div>
           </div>
+          {/* 縮小による余白調整 */}
+          <div className="-mt-32 md:-mt-48"></div>
         </div>
 
         {!user ? (
