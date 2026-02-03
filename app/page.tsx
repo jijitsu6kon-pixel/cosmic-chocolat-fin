@@ -21,14 +21,12 @@ type Profile = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント (ハイドレーション対策済み)
+// 🌠 星空生成コンポーネント
 // ==========================================
 const StarBackground = () => {
-  // 初期値は空っぽにしておく（サーバーとの不一致を防ぐ重要ポイント）
   const [starsSmall, setStarsSmall] = useState('');
   const [starsMedium, setStarsMedium] = useState('');
   
-  // ランダムな星の位置を生成する関数
   const generateStars = (count: number) => {
     let value = '';
     for (let i = 0; i < count; i++) {
@@ -40,7 +38,6 @@ const StarBackground = () => {
     return value.slice(0, -2);
   };
 
-  // useEffectを使って、クライアント（ブラウザ）だけで星を生成する
   useEffect(() => {
     setStarsSmall(generateStars(400));
     setStarsMedium(generateStars(100));
@@ -69,7 +66,6 @@ const StarBackground = () => {
         }
       `}</style>
       
-      {/* stateに値が入ってから（＝クライアント側でのみ）表示する */}
       {starsSmall && (
         <>
           <div className="star-layer absolute top-0 left-0 w-[1px] h-[1px]" style={{ boxShadow: starsSmall, animation: 'animStar 150s linear infinite' }} />
@@ -77,7 +73,6 @@ const StarBackground = () => {
           <div className="star-layer absolute top-0 left-0 w-[2px] h-[2px]" style={{ boxShadow: starsMedium, animation: 'animStar 100s linear infinite' }} />
         </>
       )}
-      
       <div className="shooting-star" style={{ top: '10%', right: '20%', animationDelay: '2s' }}></div>
       <div className="shooting-star" style={{ top: '30%', right: '0%', animationDelay: '5s' }}></div>
     </div>
@@ -113,7 +108,8 @@ export default function CosmicChocolatApp() {
             <div className="absolute inset-0 flex items-center justify-center"><span className="text-4xl">🛸</span></div>
           </div>
           <h1 className="text-3xl font-black tracking-[0.3em] mb-4 text-transparent bg-clip-text bg-gradient-to-r from-[#e6e6fa] via-[#ffd700] to-[#e6e6fa] drop-shadow-[0_0_10px_rgba(255,215,0,0.5)]">COSMIC CHOCOLAT</h1>
-          <p className="text-xs text-[#ffd700] tracking-[0.5em] animate-pulse">INITIALIZING WARDROBE...</p>
+          {/* ↓ ここを日本語化 */}
+          <p className="text-xs text-[#ffd700] tracking-[0.5em] animate-pulse">システム起動中...</p>
         </div>
       </div>
     );
@@ -243,7 +239,7 @@ function GameContent({ session }: { session: any }) {
     <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border-2 border-dashed border-[#e6e6fa]/10 bg-[#1a1033]/20 select-none h-[104px]">
        <div className="flex items-center gap-4 w-full opacity-30">
           <div className="w-8 text-center font-black text-xl text-[#8d6e63]">{index + 1}</div>
-          <div className="flex-1"><p className="font-bold text-base text-[#e6e6fa] tracking-widest text-xs">NO DATA</p></div>
+          <div className="flex-1"><p className="font-bold text-base text-[#e6e6fa] tracking-widest text-xs">データなし</p></div>
        </div>
     </div>
   );
@@ -280,7 +276,7 @@ function GameContent({ session }: { session: any }) {
           </div>
           <div className="flex-1 overflow-hidden">
             <p className={`font-bold text-base truncate transition-colors ${isSelected ? 'text-[#1a1033]' : 'text-[#e6e6fa]'} ${isMe ? 'opacity-80' : ''}`}>
-              {profile.display_name} {isMe && <span className="text-xs font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(You)</span>}
+              {profile.display_name} {isMe && <span className="text-xs font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(あなた)</span>}
             </p>
             <div className="flex items-center gap-2 mt-1.5">
               <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border ${isSelected ? 'bg-[#1a1033]/20 border-[#1a1033]/30' : 'bg-[#ffd700]/10 border-[#ffd700]/30'}`}>
@@ -289,14 +285,14 @@ function GameContent({ session }: { session: any }) {
               </div>
               {cooldown && !isMe && (
                 <span className="text-[10px] text-[#ff3366] font-mono tracking-wider flex items-center gap-1">
-                  <span className="inline-block w-1.5 h-1.5 bg-[#ff3366] rounded-full animate-ping"></span>WAIT 15m
+                  <span className="inline-block w-1.5 h-1.5 bg-[#ff3366] rounded-full animate-ping"></span>あと15分
                 </span>
               )}
             </div>
           </div>
           <div className="flex-shrink-0">
              {!isMe && !cooldown && !isSelected && <span className={`text-xl transition-all duration-300 group-hover:scale-125 group-hover:rotate-12 inline-block drop-shadow-[0_0_5px_rgba(255,215,0,0.5)]`}>🪐</span>}
-             {isSelected && <span className="text-xs bg-[#1a1033] text-[#ffd700] font-black px-3 py-1 rounded-full shadow-sm animate-bounce">LOCKED</span>}
+             {isSelected && <span className="text-xs bg-[#1a1033] text-[#ffd700] font-black px-3 py-1 rounded-full shadow-sm animate-bounce">選択済</span>}
           </div>
         </div>
       </div>
@@ -308,7 +304,6 @@ function GameContent({ session }: { session: any }) {
       <StarBackground />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1a1033]/30 via-[#0a0e1a]/80 to-black z-0"></div>
       
-      {/* 画面上部の光の演出 */}
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-[#ffd700]/5 via-[#ff3366]/5 to-transparent z-0 pointer-events-none blur-3xl"></div>
 
       <div className="w-full max-w-4xl relative z-10 pb-20">
@@ -328,7 +323,6 @@ function GameContent({ session }: { session: any }) {
           </div>
         </div>
 
-        {/* 🏆 ランキングエリア (70%縮小 & 左右分割) */}
         <div className="mb-12 animate-fade-in-up relative">
           <div className="absolute inset-0 bg-gradient-to-b from-[#ffd700]/5 to-transparent blur-xl -z-10 rounded-full"></div>
           
@@ -382,14 +376,17 @@ function GameContent({ session }: { session: any }) {
               <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
               <div className="flex justify-between items-center mb-4 relative z-10">
                 <label className="text-[10px] text-[#ffd700] uppercase tracking-wider block font-bold flex items-center gap-2">
-                  <span className="inline-block w-2 h-2 bg-[#ffd700] rounded-full animate-pulse"></span>Commander Name
+                  <span className="inline-block w-2 h-2 bg-[#ffd700] rounded-full animate-pulse"></span>
+                  お名前
                 </label>
-                <button onClick={signOut} className="text-[10px] text-[#e6e6fa]/60 hover:text-[#ff3366] transition-colors underline decoration-dotted">ABORT SESSION</button>
+                {/* ↓ 日本語化 */}
+                <button onClick={signOut} className="text-[10px] text-[#e6e6fa]/60 hover:text-[#ff3366] transition-colors underline decoration-dotted">ログアウト</button>
               </div>
               <div className="flex gap-3 items-center relative z-10">
                 <input type="text" className="flex-1 bg-[#0a0e1a]/50 font-bold text-xl text-[#e6e6fa] border-b-2 border-[#ffd700]/30 focus:border-[#ff3366] focus:outline-none transition-all pb-2 px-2 rounded-t-lg focus:bg-[#0a0e1a]/80" value={myProfileName} onChange={(e) => setMyProfileName(e.target.value)} />
+                {/* ↓ 日本語化 */}
                 <button onClick={handleUpdateName} disabled={isActionLoading} className={`text-[10px] font-bold px-6 py-3 rounded-lg transition-all shadow-lg relative overflow-hidden group ${isActionLoading ? 'bg-[#1a1033] text-[#e6e6fa]/50 cursor-wait' : 'bg-gradient-to-r from-[#ff3366] to-[#ffd700] text-[#1a1033] hover:shadow-[0_0_15px_#ff3366]'}`}>
-                  <span className="relative z-10">{isActionLoading ? 'SYNCING...' : 'UPDATE'}</span>
+                  <span className="relative z-10">{isActionLoading ? '更新中...' : '更新'}</span>
                   {!isActionLoading && <span className="absolute inset-0 bg-white/30 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>}
                 </button>
               </div>
@@ -400,15 +397,18 @@ function GameContent({ session }: { session: any }) {
                 <h2 className="font-bold text-[#ffd700] text-sm tracking-[0.2em] flex items-center gap-2">
                   <span className="text-xl">👾</span> CAST MEMBERS
                 </h2>
-                {selectedUsers.size > 0 && <span className="bg-[#ff3366] text-white text-[10px] font-bold px-4 py-1 rounded-full shadow-[0_0_10px_#ff3366] animate-bounce">{selectedUsers.size} TARGETS LOCKED</span>}
+                {/* ↓ 日本語化 */}
+                {selectedUsers.size > 0 && <span className="bg-[#ff3366] text-white text-[10px] font-bold px-4 py-1 rounded-full shadow-[0_0_10px_#ff3366] animate-bounce">{selectedUsers.size}名 選択中</span>}
               </div>
               <div className="px-4 mb-6 relative">
-                <input type="text" placeholder="Search members..." className="w-full px-5 py-4 rounded-2xl bg-[#1a1033]/80 text-[#e6e6fa] placeholder-[#e6e6fa]/30 text-sm focus:outline-none border-2 border-[#ffd700]/20 focus:border-[#ffd700]/80 focus:shadow-[0_0_15px_rgba(255,215,0,0.3)] transition-all backdrop-blur-md" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+                {/* ↓ 日本語化 */}
+                <input type="text" placeholder="メンバーを名前で検索..." className="w-full px-5 py-4 rounded-2xl bg-[#1a1033]/80 text-[#e6e6fa] placeholder-[#e6e6fa]/30 text-sm focus:outline-none border-2 border-[#ffd700]/20 focus:border-[#ffd700]/80 focus:shadow-[0_0_15px_rgba(255,215,0,0.3)] transition-all backdrop-blur-md" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
                 <span className="absolute right-8 top-1/2 -translate-y-1/2 text-[#ffd700]/50">🔍</span>
               </div>
               
               <div className="px-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#ffd700]/30 scrollbar-track-[#0a0e1a]/50 pb-24">
-                {filteredMembers.length === 0 ? <p className="text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">NO LIFEFORMS DETECTED</p> : 
+                {/* ↓ 日本語化 */}
+                {filteredMembers.length === 0 ? <p className="text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">メンバーが見つかりません</p> : 
                   filteredMembers.map((m) => <UserCard key={m.id} profile={m} />)
                 }
               </div>
@@ -416,8 +416,9 @@ function GameContent({ session }: { session: any }) {
 
             <div className="fixed bottom-6 left-0 right-0 px-6 z-50 pointer-events-none">
               <div className="max-w-lg mx-auto pointer-events-auto">
+                {/* ↓ 日本語化 */}
                 <button onClick={handleSend} disabled={selectedUsers.size === 0} className={`w-full py-6 rounded-3xl font-black text-lg tracking-[0.2em] shadow-2xl transition-all relative overflow-hidden group border-2 ${selectedUsers.size === 0 ? 'bg-[#1a1033]/90 border-white/5 text-[#e6e6fa]/30 backdrop-blur-sm cursor-not-allowed translate-y-20 opacity-0' : 'bg-gradient-to-r from-[#ff3366] via-[#ffd700] to-[#ff3366] bg-[length:200%_auto] animate-gradient border-[#ffd700] text-[#1a1033] hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_30px_rgba(255,51,102,0.8)]'}`}>
-                  <span className="relative z-10 flex items-center justify-center gap-2">LAUNCH CHOCOLATE ({selectedUsers.size}) 🚀</span>
+                  <span className="relative z-10 flex items-center justify-center gap-2">チョコを贈る ({selectedUsers.size}) 🚀</span>
                   {selectedUsers.size > 0 && <div className="absolute inset-0 bg-white/40 mix-blend-overlay translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"></div>}
                 </button>
               </div>
