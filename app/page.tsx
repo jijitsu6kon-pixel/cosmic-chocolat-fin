@@ -16,6 +16,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 type Profile = {
   id: string;
   display_name: string;
+  avatar_url?: string; // 🆕 アイコンURL
   last_received_at?: string;
   received_count: number;
 };
@@ -25,8 +26,18 @@ type RankTitle = {
   title: string;
 };
 
+type ActivityLog = { // 🆕 ログ用
+  id: number;
+  created_at: string;
+  quantity: number;
+  sender_name: string;
+  sender_avatar?: string;
+  receiver_name: string;
+  receiver_avatar?: string;
+};
+
 // ==========================================
-// 🌠 星空生成コンポーネント (無限ループ版)
+// 🌠 星空生成コンポーネント (真・無限ループ版)
 // ==========================================
 const StarBackground = () => {
   const [starsSmall, setStarsSmall] = useState('');
@@ -34,22 +45,29 @@ const StarBackground = () => {
   
   const generateStars = (count: number) => {
     let value = '';
+    const height = 2000; 
+    const width = 2500; 
+
     for (let i = 0; i < count; i++) {
-      const x = Math.floor(Math.random() * 2000);
-      const y = Math.floor(Math.random() * 2000);
+      const x = Math.floor(Math.random() * width);
+      const y = Math.floor(Math.random() * height);
       const opacity = Math.random();
-      value += `${x}px ${y}px 0px ${opacity > 0.8 ? 2 : 1}px rgba(255, 255, 255, ${opacity}), `;
+      const size = opacity > 0.8 ? 2 : 1;
+      const color = `rgba(255, 255, 255, ${opacity})`;
+
+      value += `${x}px ${y}px 0px ${size}px ${color}, `;
+      value += `${x}px ${y + height}px 0px ${size}px ${color}, `;
     }
     return value.slice(0, -2);
   };
 
   useEffect(() => {
-    setStarsSmall(generateStars(400));
-    setStarsMedium(generateStars(100));
+    setStarsSmall(generateStars(200));
+    setStarsMedium(generateStars(50));
   }, []);
 
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-[#050510]">
       <style jsx>{`
         @keyframes animStar { from { transform: translateY(0px); } to { transform: translateY(-2000px); } }
         @keyframes shooting {
@@ -57,7 +75,7 @@ const StarBackground = () => {
           70% { opacity: 1; }
           100% { transform: translateX(-1000px) translateY(1000px) rotate(315deg); opacity: 0; }
         }
-        .star-layer { position: absolute; left: 0; background: transparent; width: 2000px; height: 2000px; }
+        .star-layer { position: absolute; left: 0; top: 0; background: transparent; width: 2500px; height: 4000px; }
         .shooting-star {
           position: absolute; top: 0; right: 0; width: 4px; height: 4px;
           background: #fff; border-radius: 50%;
@@ -68,41 +86,78 @@ const StarBackground = () => {
           content: ''; position: absolute; top: 50%; transform: translateY(-50%);
           width: 300px; height: 1px; background: linear-gradient(90deg, #fff, transparent);
         }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(26, 16, 51, 0.5); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 215, 0, 0.3); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 215, 0, 0.6); }
       `}</style>
       {starsSmall && (
         <>
-          <div className="relative w-full h-full"><div className="star-layer" style={{ top: 0, boxShadow: starsSmall, animation: 'animStar 150s linear infinite' }} /><div className="star-layer" style={{ top: '2000px', boxShadow: starsSmall, animation: 'animStar 150s linear infinite' }} /></div>
-          <div className="relative w-full h-full"><div className="star-layer" style={{ top: 0, boxShadow: starsMedium, animation: 'animStar 100s linear infinite' }} /><div className="star-layer" style={{ top: '2000px', boxShadow: starsMedium, animation: 'animStar 100s linear infinite' }} /></div>
+          <div className="star-layer" style={{ boxShadow: starsSmall, animation: 'animStar 150s linear infinite' }} />
+          <div className="star-layer" style={{ boxShadow: starsMedium, animation: 'animStar 100s linear infinite' }} />
         </>
       )}
-      <div className="shooting-star" style={{ top: '10%', right: '20%', animationDelay: '2s' }}></div>
-      <div className="shooting-star" style={{ top: '30%', right: '0%', animationDelay: '5s' }}></div>
+      <div className="shooting-star" style={{ top: '10%', right: '10%', animationDelay: '2s' }}></div>
+      <div className="shooting-star" style={{ top: '30%', right: '5%', animationDelay: '5s' }}></div>
     </div>
   );
 };
 
 // ==========================================
-// 🚀 ロケット演出レイヤー (データ処理とは分離)
+// 🚀 ロケット演出レイヤー
 // ==========================================
 const RocketLayer = ({ isActive, onComplete }: { isActive: boolean, onComplete: () => void }) => {
   useEffect(() => {
     if (isActive) {
-      const timer = setTimeout(onComplete, 2000); // 2秒後に消える
+      const timer = setTimeout(onComplete, 2000);
       return () => clearTimeout(timer);
     }
   }, [isActive, onComplete]);
-
   if (!isActive) return null;
-
   return (
     <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden flex items-end justify-center">
-      <style jsx>{`
-        @keyframes flyUp { 0% { transform: translateY(100vh) scale(0.5); opacity: 1; } 50% { transform: translateY(-50vh) scale(1.2); } 100% { transform: translateY(-150vh) scale(0.5); opacity: 0; } }
-      `}</style>
+      <style jsx>{` @keyframes flyUp { 0% { transform: translateY(100vh) scale(0.5); opacity: 1; } 50% { transform: translateY(-50vh) scale(1.2); } 100% { transform: translateY(-150vh) scale(0.5); opacity: 0; } } `}</style>
       <div className="text-6xl animate-[flyUp_1.5s_ease-in_forwards] drop-shadow-[0_0_20px_rgba(255,51,102,0.8)]">🚀</div>
       <div className="absolute text-4xl animate-[flyUp_1.8s_ease-in_forwards] left-[40%] drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]" style={{ animationDelay: '0.1s' }}>🍫</div>
       <div className="absolute text-4xl animate-[flyUp_1.6s_ease-in_forwards] right-[40%] drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]" style={{ animationDelay: '0.2s' }}>🍫</div>
     </div>
+  );
+};
+
+// ==========================================
+// 📡 アクティビティログ (サイドパネル)
+// ==========================================
+const ActivityPanel = ({ isOpen, onClose, logs }: { isOpen: boolean, onClose: () => void, logs: ActivityLog[] }) => {
+  return (
+    <>
+      {/* 背景の暗幕 */}
+      <div className={`fixed inset-0 bg-black/50 z-[80] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose}></div>
+      
+      {/* パネル本体 */}
+      <div className={`fixed top-0 right-0 h-full w-80 bg-[#1a1033]/95 backdrop-blur-xl border-l border-[#ffd700]/30 z-[90] transform transition-transform duration-300 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="p-4 border-b border-[#ffd700]/20 flex justify-between items-center">
+          <h3 className="text-[#ffd700] font-bold tracking-widest flex items-center gap-2"><span className="animate-pulse">📡</span> LOG RECORD</h3>
+          <button onClick={onClose} className="text-[#e6e6fa] hover:text-[#ff3366] text-xl">×</button>
+        </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+          {logs.length === 0 ? <p className="text-center text-[#e6e6fa]/30 text-xs">通信ログなし</p> : logs.map((log) => (
+            <div key={log.id} className="bg-[#0a0e1a]/50 p-3 rounded-lg border border-[#e6e6fa]/10 text-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <img src={log.sender_avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-6 h-6 rounded-full border border-[#ffd700]/30" />
+                <span className="text-[#ffd700] font-bold text-xs truncate max-w-[80px]">{log.sender_name}</span>
+                <span className="text-[#e6e6fa]/50 text-[10px]">▶</span>
+                <img src={log.receiver_avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-6 h-6 rounded-full border border-[#ff3366]/30" />
+                <span className="text-[#e6e6fa] font-bold text-xs truncate max-w-[80px]">{log.receiver_name}</span>
+              </div>
+              <p className="text-[#e6e6fa]/80 text-xs text-center bg-[#1a1033] py-1 rounded border border-[#ffd700]/10">
+                {log.quantity > 1 ? `☄️ ラッキーメテオ！ ${log.quantity}個` : `💝 チョコを1個`} 贈りました
+              </p>
+              <p className="text-right text-[10px] text-[#e6e6fa]/30 mt-1">{new Date(log.created_at).toLocaleTimeString('ja-JP')}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   );
 };
 
@@ -129,16 +184,13 @@ export default function CosmicChocolatApp() {
         <StarBackground />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a1033]/40 via-[#0a0e1a]/60 to-black/80 z-0"></div>
         <div className="text-center relative z-10">
-          <div className="relative w-24 h-24 mx-auto mb-8 animate-bounce">
-            <span className="text-6xl">🛸</span>
-          </div>
+          <div className="relative w-24 h-24 mx-auto mb-8 animate-bounce"><span className="text-6xl">🛸</span></div>
           <h1 className="text-3xl font-black tracking-[0.3em] mb-4 text-transparent bg-clip-text bg-gradient-to-r from-[#e6e6fa] via-[#ffd700] to-[#e6e6fa]">COSMIC CHOCOLAT</h1>
           <p className="text-xs text-[#ffd700] tracking-[0.5em] animate-pulse">システム起動中...</p>
         </div>
       </div>
     );
   }
-
   return <GameContent session={session} />;
 }
 
@@ -156,11 +208,14 @@ function GameContent({ session }: { session: any }) {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const isMounted = useRef(true);
 
-  // 🆕 新機能用のState
   const [isRocketFlying, setIsRocketFlying] = useState(false);
-  const [myTotalSent, setMyTotalSent] = useState(0); // 自分の合計送信数
-  const [myRankTitle, setMyRankTitle] = useState('見習いクルー'); // 現在の称号
-  const [appConfig, setAppConfig] = useState<any>({}); // Admin設定
+  const [myTotalSent, setMyTotalSent] = useState(0); 
+  const [myRankTitle, setMyRankTitle] = useState('見習いクルー'); 
+  const [appConfig, setAppConfig] = useState<any>({});
+  
+  // 🆕 ログ機能用State
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [isLogOpen, setIsLogOpen] = useState(false);
 
   // ----------------------------------------
   // 🔄 データ取得
@@ -174,33 +229,56 @@ function GameContent({ session }: { session: any }) {
     }
   }, []);
 
+  const fetchLogs = useCallback(async () => {
+    const { data } = await supabase.from('activity_logs').select('*');
+    if (isMounted.current && data) setActivityLogs(data);
+  }, []);
+
   const fetchRanking = useCallback(async () => {
-    // 合計数（個数の合計）を取得
     const { data: sumData } = await supabase.from('chocolates').select('quantity');
     const total = sumData?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0;
     if (isMounted.current) setTotalChocolates(total);
-
     const { data } = await supabase.from('galaxy_ranking').select('*');
-    if (isMounted.current && data) setRankingList(data);
+    
+    // アイコンURLも取得するためにProfileテーブルと結合（ビューに含まれていなければ補完）
+    // 今回はビューがid, display_name, received_countだけなので、別途profilesからavatarを取得してマージする
+    if (isMounted.current && data) {
+       const { data: profiles } = await supabase.from('profiles').select('id, avatar_url');
+       const merged = data.map(rank => ({
+         ...rank,
+         avatar_url: profiles?.find(p => p.id === rank.id)?.avatar_url
+       }));
+       setRankingList(merged);
+    }
   }, []);
 
   const fetchUserData = useCallback(async () => {
     if (!user) return;
-    let name = user.user_metadata.full_name || '劇団員';
-    const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle();
-    if (profile) { name = profile.display_name; } else { await supabase.from('profiles').insert({ id: user.id, display_name: name }); }
+    let name = user.user_metadata.full_name || 'クルー';
+    let avatar = user.user_metadata.avatar_url || '';
+
+    // 🆕 ログイン時にアイコンURLもDBに保存
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+    if (profile) { 
+      name = profile.display_name; 
+      // DB上のアイコンが古ければ更新
+      if (profile.avatar_url !== avatar) {
+         await supabase.from('profiles').update({ avatar_url: avatar }).eq('id', user.id);
+      }
+    } else { 
+      await supabase.from('profiles').insert({ id: user.id, display_name: name, avatar_url: avatar }); 
+    }
+    
     if (isMounted.current) setMyProfileName(name);
 
     const { data: profiles } = await supabase.from('profiles').select('*').neq('id', user.id);
     const { data: myHistory } = await supabase.from('chocolates').select('receiver_id, created_at, quantity').eq('sender_id', user.id);
     const { data: ranks } = await supabase.from('galaxy_ranking').select('*');
     
-    // 称号計算 (スターログ)
     const totalSent = myHistory?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0;
     if (isMounted.current) setMyTotalSent(totalSent);
     
     if (appConfig.rank_titles) {
-      // 設定から称号リストを取得して計算
       const titles: RankTitle[] = appConfig.rank_titles;
       const currentTitle = titles.sort((a, b) => b.count - a.count).find(t => totalSent >= t.count);
       if (currentTitle && isMounted.current) setMyRankTitle(currentTitle.title);
@@ -224,21 +302,23 @@ function GameContent({ session }: { session: any }) {
       merged.sort((a, b) => b.received_count - a.received_count);
       if (isMounted.current) setMemberList(merged);
     }
-  }, [user, appConfig]); // Configが変わったら再計算
+  }, [user, appConfig]); 
 
   useEffect(() => {
     isMounted.current = true;
-    fetchConfig(); // 最初に設定を読み込む
+    fetchConfig(); 
     fetchRanking();
+    fetchLogs(); // ログ初期取得
     if (user) fetchUserData();
     
     const channel = supabase.channel('realtime')
       .on('postgres_changes', { event: '*', schema: 'public' }, () => {
         fetchRanking(); 
+        fetchLogs(); // 何かあればログも更新
         if (user) fetchUserData();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, () => {
-        fetchConfig(); // 設定が変わったら即座に読み直す
+        fetchConfig(); 
       })
       .subscribe();
     return () => { isMounted.current = false; supabase.removeChannel(channel); };
@@ -266,34 +346,28 @@ function GameContent({ session }: { session: any }) {
 
   const handleSend = async () => {
     if (!user || selectedUsers.size === 0) return;
-    
-    // 🚀 ロケット演出 (データ送信とは非同期で実行)
     setIsRocketFlying(true); 
 
-    // 🌠 ラッキーメテオ判定
     const meteorConfig = appConfig.lucky_meteor_config || { enabled: false, probability: 0, multiplier: 1 };
     const isLucky = meteorConfig.enabled && Math.random() < meteorConfig.probability;
     const quantity = isLucky ? meteorConfig.multiplier : 1;
 
     if (isLucky) {
-      // ラッキー演出 (アラート)
       setTimeout(() => alert(`☄️ LUCKY METEOR!!\n奇跡が起きました！\n${quantity}倍のチョコが降り注ぎます！`), 500);
     } else {
       setTimeout(() => alert(`💝 ${selectedUsers.size}人のクルーメイトにチョコを贈りました！`), 500);
     }
 
     const targets = Array.from(selectedUsers);
-    setSelectedUsers(new Set()); // 先にクリア
+    setSelectedUsers(new Set()); 
 
-    // バックグラウンドで送信
     const updates = targets.map(rid => ({ 
       sender_id: user.id, 
       receiver_id: rid,
-      quantity: quantity // 個数を指定
+      quantity: quantity 
     }));
     await supabase.from('chocolates').insert(updates);
     
-    // データ更新
     fetchRanking(); 
     fetchUserData();
   };
@@ -301,7 +375,7 @@ function GameContent({ session }: { session: any }) {
   const handleUpdateName = async () => {
     if (!user || !myProfileName) return;
     setIsActionLoading(true);
-    await supabase.from('profiles').upsert({ id: user.id, display_name: myProfileName });
+    await supabase.from('profiles').update({ display_name: myProfileName }).eq('id', user.id);
     setTimeout(() => setIsActionLoading(false), 500);
   };
   const signIn = () => supabase.auth.signInWithOAuth({ provider: 'discord', options: { queryParams: { prompt: 'consent' } } });
@@ -335,6 +409,8 @@ function GameContent({ session }: { session: any }) {
     const isMe = user && profile.id === user.id;
     const detail = memberList.find(m => m.id === profile.id); 
     const cooldown = isCooldown(detail?.last_received_at);
+    // 🆕 アイコン表示 (なければデフォルト画像)
+    const avatar = profile.avatar_url || "https://www.gravatar.com/avatar?d=mp";
 
     return (
       <div 
@@ -353,13 +429,19 @@ function GameContent({ session }: { session: any }) {
       >
         {isSelected && <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#ffd700]/20 to-transparent opacity-50 animate-pulse"></div>}
         <div className="flex items-center gap-4 overflow-hidden w-full relative z-10">
-          <div className="flex-shrink-0 w-8 text-center flex justify-center">
+          <div className="flex-shrink-0 w-8 text-center flex justify-center items-center">
             {isRanking ? <RankBadge index={index} /> : (
                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-[#ffd700] border-[#ffd700] shadow-[0_0_10px_#ffd700]' : 'border-white/20 group-hover:border-[#ffd700]/50'}`}>
                  {isSelected && <span className="text-[#1a1033] font-bold text-xs">✓</span>}
                </div>
             )}
           </div>
+          
+          {/* 🆕 アイコン追加 */}
+          <div className="flex-shrink-0">
+             <img src={avatar} alt="icon" className="w-12 h-12 rounded-full border-2 border-[#e6e6fa]/20 object-cover shadow-lg" />
+          </div>
+
           <div className="flex-1 overflow-hidden">
             <p className={`font-bold text-base truncate transition-colors ${isSelected ? 'text-[#1a1033]' : 'text-[#e6e6fa]'} ${isMe ? 'opacity-80' : ''}`}>
               {profile.display_name} {isMe && <span className="text-xs font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(あなた)</span>}
@@ -387,8 +469,17 @@ function GameContent({ session }: { session: any }) {
 
   return (
     <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
-      {/* 🚀 ロケット演出レイヤー */}
       <RocketLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
+      <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
+
+      {/* 🆕 ログボタン (右側に固定) */}
+      <button 
+        onClick={() => setIsLogOpen(true)}
+        className="fixed top-24 right-0 z-50 bg-[#1a1033]/80 border-l border-t border-b border-[#ffd700]/30 text-[#ffd700] p-3 rounded-l-xl backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:bg-[#1a1033] hover:pl-5 transition-all duration-300 group"
+      >
+        <span className="text-xl group-hover:animate-ping">📡</span>
+        <span className="hidden group-hover:inline ml-2 text-xs font-bold tracking-widest">LOG</span>
+      </button>
 
       <StarBackground />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1a1033]/30 via-[#0a0e1a]/80 to-black z-0"></div>
@@ -449,7 +540,7 @@ function GameContent({ session }: { session: any }) {
         {!user ? (
           <div className="text-center px-4 pb-20 animate-fade-in-up relative z-20">
             <p className="mb-10 text-base text-[#e6e6fa]/80 leading-8 font-serif italic drop-shadow-md">
-              銀河の彼方へ、想いを乗せて。<br/>コマンダーとしてログインし、<br/>キャストにエネルギーを贈りましょう。
+              銀河の彼方へ、想いを乗せて。<br/>クルーとしてログインし、<br/>仲間にショコラを届けよう。
             </p>
             <button onClick={signIn} className="group relative inline-flex items-center justify-center px-12 py-4 font-bold text-white transition-all duration-300 bg-[#5865F2] rounded-full hover:bg-[#4752c4] hover:scale-105 shadow-[0_0_30px_rgba(88,101,242,0.5)] overflow-hidden">
                <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></span>
@@ -464,7 +555,6 @@ function GameContent({ session }: { session: any }) {
             <div className="bg-[#1a1033]/60 p-6 rounded-2xl border border-[#ffd700]/30 backdrop-blur-xl mx-2 shadow-[0_0_30px_rgba(26,16,51,0.5)] relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
               
-              {/* 🆕 スターログ (自分の活動履歴) */}
               <div className="relative z-10 mb-4 text-center border-b border-[#ffd700]/20 pb-4">
                  <p className="text-[10px] text-[#ffd700] uppercase tracking-widest mb-1">STAR LOG</p>
                  <div className="flex items-center justify-center gap-4">
@@ -496,7 +586,7 @@ function GameContent({ session }: { session: any }) {
               </div>
             </div>
 
-            <div>
+            <div className="custom-scrollbar px-2 max-h-[500px] overflow-y-auto pb-24">
               <div className="px-4 mb-4 flex items-center justify-between">
                 <h2 className="font-bold text-[#ffd700] text-sm tracking-[0.2em] flex items-center gap-2">
                   <span className="text-xl">👾</span> CAST CREWMATES
@@ -508,7 +598,7 @@ function GameContent({ session }: { session: any }) {
                 <span className="absolute right-8 top-1/2 -translate-y-1/2 text-[#ffd700]/50">🔍</span>
               </div>
               
-              <div className="px-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#ffd700]/30 scrollbar-track-[#0a0e1a]/50 pb-24">
+              <div className="px-2">
                 {filteredMembers.length === 0 ? <p className="text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">クルーメイトが見つかりません</p> : 
                   filteredMembers.map((m) => <UserCard key={m.id} profile={m} />)
                 }
