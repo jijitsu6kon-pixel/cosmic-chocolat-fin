@@ -37,7 +37,7 @@ type ActivityLog = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント (修正版)
+// 🌠 星空生成コンポーネント
 // ==========================================
 const StarBackground = () => {
   const [starsSmall, setStarsSmall] = useState('');
@@ -86,10 +86,9 @@ const StarBackground = () => {
           content: ''; position: absolute; top: 50%; transform: translateY(-50%);
           width: 300px; height: 1px; background: linear-gradient(90deg, #fff, transparent);
         }
-        /* スクロールバーの洗練 */
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 215, 0, 0.3); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(26, 16, 51, 0.5); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 215, 0, 0.3); border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 215, 0, 0.6); }
       `}</style>
       
@@ -117,9 +116,9 @@ const RocketLayer = ({ isActive, onComplete }: { isActive: boolean, onComplete: 
   }, [isActive, onComplete]);
   if (!isActive) return null;
   return (
-    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden flex items-end justify-center backdrop-blur-[2px] transition-all duration-500">
+    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden flex items-end justify-center">
       <style jsx>{` @keyframes flyUp { 0% { transform: translateY(100vh) scale(0.5); opacity: 1; } 50% { transform: translateY(-50vh) scale(1.2); } 100% { transform: translateY(-150vh) scale(0.5); opacity: 0; } } `}</style>
-      <div className="text-6xl animate-[flyUp_1.5s_ease-in_forwards] drop-shadow-[0_0_30px_rgba(255,51,102,0.8)]">🚀</div>
+      <div className="text-6xl animate-[flyUp_1.5s_ease-in_forwards] drop-shadow-[0_0_20px_rgba(255,51,102,0.8)]">🚀</div>
       <div className="absolute text-4xl animate-[flyUp_1.8s_ease-in_forwards] left-[40%] drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]" style={{ animationDelay: '0.1s' }}>🍫</div>
       <div className="absolute text-4xl animate-[flyUp_1.6s_ease-in_forwards] right-[40%] drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]" style={{ animationDelay: '0.2s' }}>🍫</div>
     </div>
@@ -132,28 +131,28 @@ const RocketLayer = ({ isActive, onComplete }: { isActive: boolean, onComplete: 
 const ActivityPanel = ({ isOpen, onClose, logs }: { isOpen: boolean, onClose: () => void, logs: ActivityLog[] }) => {
   return (
     <>
-      <div className={`fixed inset-0 bg-black/60 z-[80] transition-opacity duration-300 backdrop-blur-sm ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose}></div>
-      <div className={`fixed top-0 right-0 h-full w-80 bg-[#0a0a15]/95 backdrop-blur-xl border-l border-white/10 z-[90] transform transition-transform duration-300 flex flex-col shadow-2xl ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="p-5 border-b border-white/10 flex justify-between items-center bg-white/5">
-          <h3 className="text-[#ffd700] font-bold tracking-[0.2em] text-xs flex items-center gap-2"><span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse"></span> SYSTEM LOG</h3>
-          <button onClick={onClose} className="text-white/50 hover:text-white transition-colors text-xl">×</button>
+      <div className={`fixed inset-0 bg-black/50 z-[80] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose}></div>
+      <div className={`fixed top-0 right-0 h-full w-80 bg-[#1a1033]/95 backdrop-blur-xl border-l border-[#ffd700]/30 z-[90] transform transition-transform duration-300 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="p-4 border-b border-[#ffd700]/20 flex justify-between items-center">
+          <h3 className="text-[#ffd700] font-bold tracking-widest flex items-center gap-2"><span className="animate-pulse">📡</span> LOG RECORD</h3>
+          <button onClick={onClose} className="text-[#e6e6fa] hover:text-[#ff3366] text-xl">×</button>
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
-          {logs.length === 0 ? <p className="text-center text-white/30 text-xs py-10">NO SIGNAL</p> : logs.map((log) => (
-            <div key={log.id} className="bg-white/5 p-3 rounded-lg border border-white/5 text-xs hover:bg-white/10 transition-colors group">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+          {logs.length === 0 ? <p className="text-center text-[#e6e6fa]/30 text-xs">通信ログなし</p> : logs.map((log) => (
+            <div key={log.id} className="bg-[#0a0e1a]/50 p-3 rounded-lg border border-[#e6e6fa]/10 text-sm">
               <div className="flex items-center gap-2 mb-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={log.sender_avatar || 'https://www.gravatar.com/avatar?d=mp'} alt="Sender" className="w-5 h-5 rounded-full border border-white/20" />
-                <span className="text-[#ffd700] font-bold truncate max-w-[70px]">{log.sender_name}</span>
-                <span className="text-white/30 text-[10px]">▶</span>
+                <img src={log.sender_avatar || 'https://www.gravatar.com/avatar?d=mp'} alt="sender" className="w-6 h-6 rounded-full border border-[#ffd700]/30" />
+                <span className="text-[#ffd700] font-bold text-xs truncate max-w-[80px]">{log.sender_name}</span>
+                <span className="text-[#e6e6fa]/50 text-[10px]">▶</span>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={log.receiver_avatar || 'https://www.gravatar.com/avatar?d=mp'} alt="Receiver" className="w-5 h-5 rounded-full border border-white/20" />
-                <span className="text-white font-bold truncate max-w-[70px]">{log.receiver_name}</span>
+                <img src={log.receiver_avatar || 'https://www.gravatar.com/avatar?d=mp'} alt="receiver" className="w-6 h-6 rounded-full border border-[#ff3366]/30" />
+                <span className="text-[#e6e6fa] font-bold text-xs truncate max-w-[80px]">{log.receiver_name}</span>
               </div>
-              <div className="flex justify-between items-center text-white/60">
-                <span>{log.quantity > 1 ? `☄️ METEOR x${log.quantity}` : `💝 GIFT x1`}</span>
-                <span className="font-mono text-[10px] opacity-50">{new Date(log.created_at).toLocaleTimeString('ja-JP')}</span>
-              </div>
+              <p className="text-[#e6e6fa]/80 text-xs text-center bg-[#1a1033] py-1 rounded border border-[#ffd700]/10">
+                {log.quantity > 1 ? `☄️ ラッキーメテオ！ ${log.quantity}個` : `💝 チョコを1個`} 贈りました
+              </p>
+              <p className="text-right text-[10px] text-[#e6e6fa]/30 mt-1">{new Date(log.created_at).toLocaleTimeString('ja-JP')}</p>
             </div>
           ))}
         </div>
@@ -183,10 +182,11 @@ export default function CosmicChocolatApp() {
     return (
       <div className="min-h-screen bg-[#050510] flex items-center justify-center overflow-hidden relative">
         <StarBackground />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a1033]/40 via-[#0a0e1a]/60 to-black/80 z-0"></div>
         <div className="text-center relative z-10">
-          <div className="relative w-20 h-20 mx-auto mb-8 animate-bounce opacity-80"><span className="text-5xl">🛸</span></div>
-          <h1 className="text-2xl font-black tracking-[0.4em] mb-4 text-white/90">LOADING</h1>
-          <div className="w-32 h-0.5 bg-gradient-to-r from-transparent via-[#ffd700] to-transparent mx-auto opacity-50"></div>
+          <div className="relative w-24 h-24 mx-auto mb-8 animate-bounce"><span className="text-6xl">🛸</span></div>
+          <h1 className="text-3xl font-black tracking-[0.3em] mb-4 text-transparent bg-clip-text bg-gradient-to-r from-[#e6e6fa] via-[#ffd700] to-[#e6e6fa]">COSMIC CHOCOLAT</h1>
+          <p className="text-xs text-[#ffd700] tracking-[0.5em] animate-pulse">システム起動中...</p>
         </div>
       </div>
     );
@@ -311,7 +311,7 @@ function GameContent({ session }: { session: any }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, () => { fetchConfig(); })
       .subscribe();
     return () => { isMounted.current = false; supabase.removeChannel(channel); };
-  }, [user, fetchConfig, fetchRanking, fetchLogs, fetchUserData]);
+  }, [user, fetchConfig, fetchLogs, fetchRanking, fetchUserData]);
 
   // ----------------------------------------
   // 🎮 アクション
@@ -371,24 +371,24 @@ function GameContent({ session }: { session: any }) {
   const signOut = async () => { await supabase.auth.signOut(); };
 
   // ----------------------------------------
-  // 🎨 表示パーツ (Refined)
+  // 🎨 表示パーツ
   // ----------------------------------------
   const filteredMembers = memberList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
 
   const RankBadge = ({ index }: { index: number }) => {
     const styles = [
-      "text-transparent bg-clip-text bg-gradient-to-b from-[#ffd700] to-[#b8860b] drop-shadow-[0_0_8px_rgba(255,215,0,0.6)] scale-125", 
-      "text-transparent bg-clip-text bg-gradient-to-b from-[#e6e6fa] to-[#708090] drop-shadow-[0_0_5px_rgba(230,230,250,0.4)] scale-110", 
-      "text-transparent bg-clip-text bg-gradient-to-b from-[#ffab91] to-[#8b4513] drop-shadow-[0_0_5px_rgba(255,171,145,0.4)] scale-105"
+      "text-transparent bg-clip-text bg-gradient-to-b from-[#ffd700] to-[#e6b800] drop-shadow-[0_0_8px_rgba(255,215,0,0.8)] scale-125", 
+      "text-transparent bg-clip-text bg-gradient-to-b from-[#e6e6fa] to-[#c0c0c0] drop-shadow-[0_0_5px_rgba(230,230,250,0.6)] scale-110", 
+      "text-transparent bg-clip-text bg-gradient-to-b from-[#ffab91] to-[#d84315] drop-shadow-[0_0_5px_rgba(255,171,145,0.5)] scale-105"
     ];
-    return <span className={`font-black text-xl font-mono ${styles[index] || "text-[#8d6e63] opacity-60"}`}>{index + 1}</span>;
+    return <span className={`font-black text-xl ${styles[index] || "text-[#8d6e63] opacity-70"}`}>{index + 1}</span>;
   };
 
   const EmptyCard = ({ index }: { index: number }) => (
-    <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border border-dashed border-white/5 bg-white/5 select-none h-[96px]">
+    <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border-2 border-dashed border-[#e6e6fa]/10 bg-[#1a1033]/20 select-none h-[104px]">
        <div className="flex items-center gap-4 w-full opacity-30">
-          <div className="w-8 text-center font-black text-xl text-white/50">{index + 1}</div>
-          <div className="flex-1"><p className="font-bold text-sm text-white/50 tracking-widest text-xs">NO DATA</p></div>
+          <div className="w-8 text-center font-black text-xl text-[#8d6e63]">{index + 1}</div>
+          <div className="flex-1"><p className="font-bold text-base text-[#e6e6fa] tracking-widest text-xs">データなし</p></div>
        </div>
     </div>
   );
@@ -404,50 +404,51 @@ function GameContent({ session }: { session: any }) {
       <div 
         onClick={() => !isMe && !cooldown && handleClickUser(profile.id)}
         className={`
-          relative flex items-center justify-between p-4 mb-3 rounded-2xl transition-all duration-300 border select-none overflow-hidden group h-[96px]
-          ${isMe ? 'bg-[#1a1033]/60 border-[#ffd700]/30 cursor-default' : 'cursor-pointer'}
-          ${!isMe && cooldown ? 'grayscale opacity-50 cursor-not-allowed bg-black/40 border-white/5' : ''}
+          relative flex items-center justify-between p-4 mb-3 rounded-2xl transition-all duration-500 border select-none backdrop-blur-md overflow-hidden group h-[104px]
+          ${isMe ? 'bg-[#1a1033]/40 border-[#ffd700]/20 cursor-default' : 'cursor-pointer'}
+          ${!isMe && cooldown ? 'opacity-50 grayscale cursor-not-allowed bg-[#0a0e1a]/80 border-white/5' : ''}
           ${!isMe && !cooldown && isSelected 
-            ? 'bg-gradient-to-r from-[#ff3366]/20 to-[#ffd700]/20 border-[#ff3366] shadow-[0_0_20px_rgba(255,51,102,0.3)] scale-[1.01]' 
+            ? 'bg-gradient-to-r from-[#ff3366]/80 to-[#ffd700]/80 border-[#ffd700] shadow-[0_0_20px_rgba(255,51,102,0.5)] scale-[1.02]' 
             : !isMe && !cooldown 
-              ? 'bg-[#1a1033]/60 border-white/10 hover:border-white/30 hover:bg-[#1a1033]/90 hover:shadow-lg' 
+              ? 'bg-[#1a1033]/60 border-white/10 hover:border-[#ffd700]/50 hover:bg-[#1a1033]/80 hover:shadow-[0_0_15px_rgba(26,16,51,0.8)]' 
               : ''
           }
         `}
       >
+        {isSelected && <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#ffd700]/20 to-transparent opacity-50 animate-pulse"></div>}
         <div className="flex items-center gap-4 overflow-hidden w-full relative z-10">
           <div className="flex-shrink-0 w-8 text-center flex justify-center items-center">
             {isRanking ? <RankBadge index={index} /> : (
-               <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${isSelected ? 'bg-[#ff3366] border-[#ff3366]' : 'border-white/20 group-hover:border-white/50'}`}>
-                 {isSelected && <span className="text-white font-bold text-[10px]">✓</span>}
+               <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-[#ffd700] border-[#ffd700] shadow-[0_0_10px_#ffd700]' : 'border-white/20 group-hover:border-[#ffd700]/50'}`}>
+                 {isSelected && <span className="text-[#1a1033] font-bold text-xs">✓</span>}
                </div>
             )}
           </div>
           
-          <div className="flex-shrink-0 relative">
+          <div className="flex-shrink-0">
              {/* eslint-disable-next-line @next/next/no-img-element */}
-             <img src={avatar} alt="icon" className="w-12 h-12 rounded-full border border-white/10 object-cover shadow-sm group-hover:scale-105 transition-transform" />
-             {isRanking && index < 3 && <div className="absolute -top-1 -right-1 text-xs">👑</div>}
+             <img src={avatar} alt="icon" className="w-12 h-12 rounded-full border-2 border-[#e6e6fa]/20 object-cover shadow-lg" />
           </div>
 
           <div className="flex-1 overflow-hidden">
-            <p className={`font-bold text-sm truncate transition-colors flex items-center gap-2 ${isSelected ? 'text-white' : 'text-[#e6e6fa]'} ${isMe ? 'opacity-90' : ''}`}>
-              {profile.display_name} {isMe && <span className="text-[9px] font-normal text-[#ffd700] border border-[#ffd700]/30 px-1 rounded bg-[#ffd700]/10 tracking-widest">YOU</span>}
+            <p className={`font-bold text-base truncate transition-colors ${isSelected ? 'text-[#1a1033]' : 'text-[#e6e6fa]'} ${isMe ? 'opacity-80' : ''}`}>
+              {profile.display_name} {isMe && <span className="text-xs font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(あなた)</span>}
             </p>
-            <div className="flex items-center gap-2 mt-1">
-              <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${isSelected ? 'bg-black/20 border-white/20' : 'bg-black/20 border-white/10'}`}>
-                <span className="text-[10px]">🍫</span>
-                <span className={`text-xs font-mono font-bold ${isSelected ? 'text-[#ff3366]' : 'text-[#ffd700]'}`}>{profile.received_count.toLocaleString()}</span>
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border ${isSelected ? 'bg-[#1a1033]/20 border-[#1a1033]/30' : 'bg-[#ffd700]/10 border-[#ffd700]/30'}`}>
+                <span className="text-xs">🍫</span>
+                <span className={`text-sm font-black ${isSelected ? 'text-[#1a1033]' : 'text-[#ffd700]'}`}>{profile.received_count}</span>
               </div>
               {cooldown && !isMe && (
-                <span className="text-[9px] text-[#ff3366] font-mono tracking-wider flex items-center gap-1 animate-pulse">
-                  RECHARGING
+                <span className="text-[10px] text-[#ff3366] font-mono tracking-wider flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 bg-[#ff3366] rounded-full animate-ping"></span>あと15分
                 </span>
               )}
             </div>
           </div>
-          <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-             {!isMe && !cooldown && !isSelected && <span className="text-lg grayscale group-hover:grayscale-0 transition-all">🪐</span>}
+          <div className="flex-shrink-0">
+             {!isMe && !cooldown && !isSelected && <span className={`text-xl transition-all duration-300 group-hover:scale-125 group-hover:rotate-12 inline-block drop-shadow-[0_0_5px_rgba(255,215,0,0.5)]`}>🪐</span>}
+             {isSelected && <span className="text-xs bg-[#1a1033] text-[#ffd700] font-black px-3 py-1 rounded-full shadow-sm animate-bounce">選択済</span>}
           </div>
         </div>
       </div>
@@ -461,90 +462,98 @@ function GameContent({ session }: { session: any }) {
 
       <button 
         onClick={() => setIsLogOpen(true)}
-        className="fixed top-24 right-0 z-50 bg-black/60 border-l border-y border-white/20 text-[#ffd700] p-3 rounded-l-xl backdrop-blur-md shadow-lg hover:bg-black/80 hover:pl-5 transition-all duration-300 group"
+        className="fixed top-24 right-0 z-50 bg-[#1a1033]/80 border-l border-t border-b border-[#ffd700]/30 text-[#ffd700] p-3 rounded-l-xl backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:bg-[#1a1033] hover:pl-5 transition-all duration-300 group"
       >
-        <span className="text-lg group-hover:rotate-12 transition-transform block">📡</span>
+        <span className="text-xl group-hover:animate-ping">📡</span>
+        <span className="hidden group-hover:inline ml-2 text-xs font-bold tracking-widest">LOG</span>
       </button>
 
       <StarBackground />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-[#1a1033]/40 via-[#0a0e1a]/80 to-[#000000] z-0"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1a1033]/30 via-[#0a0e1a]/80 to-black z-0"></div>
       
+      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-[#ffd700]/5 via-[#ff3366]/5 to-transparent z-0 pointer-events-none blur-3xl"></div>
+
       <div className="w-full max-w-4xl relative z-10 pb-20">
-        <div className="text-center mb-8 pt-16">
-          <h1 className="text-4xl md:text-5xl font-black tracking-[0.2em] mb-6 relative select-none">
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-[#e6e6fa] to-[#a0a0c0] text-sm md:text-lg mb-2 tracking-[0.5em] font-light">PROJECT VOICE NOVA</span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-br from-[#ffd700] via-[#ffdead] to-[#b8860b] drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]">COSMIC</span>
-            <span className="block text-3xl md:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-[#ff3366] to-[#ff00ff] drop-shadow-[0_0_15px_rgba(255,51,102,0.4)] mt-[-5px]">CHOCOLAT</span>
+        <div className="text-center mb-6 pt-12">
+          <h1 className="text-4xl font-extrabold tracking-[0.2em] mb-6 relative">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e6e6fa] to-[#a0a0c0]">COSMIC</span><br/>
+            <span className="text-6xl text-transparent bg-clip-text bg-gradient-to-r from-[#ffd700] via-[#ff3366] to-[#ffd700] drop-shadow-[0_0_15px_rgba(255,51,102,0.6)]">CHOCOLAT</span>
           </h1>
-          
-          <div className="inline-block relative group">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700] to-[#ff3366] rounded-2xl blur opacity-20 group-hover:opacity-30 transition-opacity"></div>
-            <div className="bg-[#0a0a15]/80 rounded-xl px-8 py-4 text-center border border-white/10 relative backdrop-blur-md">
-              <p className="text-[10px] text-[#ffd700] uppercase tracking-[0.3em] mb-1 opacity-80">Total Gifted</p>
-              <p className="text-4xl font-black font-mono text-transparent bg-clip-text bg-gradient-to-b from-white to-[#cccccc] tracking-tighter">
+          <div className="relative group mx-auto max-w-xs">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700] to-[#ff3366] rounded-2xl blur-md opacity-50 group-hover:opacity-80 transition-opacity duration-500 animate-pulse"></div>
+            <div className="bg-[#1a1033]/90 rounded-xl p-5 text-center border border-[#ffd700]/30 relative backdrop-blur-xl">
+              <p className="text-[10px] text-[#ffd700] uppercase tracking-[0.3em] mb-1">Total Stardust Gifted</p>
+              <p className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-[#ffd700] to-[#ff6b6b] drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
                 {totalChocolates.toLocaleString()}
               </p>
             </div>
           </div>
         </div>
 
-        {/* 🔄 ログイン/操作エリア */}
+        {/* 🔄 ログイン/操作エリア (PCでもスマホでもランキングより先に表示) */}
         {!user ? (
-          <div className="text-center px-4 pb-16 animate-fade-in-up relative z-20">
-            <p className="mb-10 text-sm text-[#e6e6fa]/60 leading-8 font-serif italic tracking-wider">
-              銀河の彼方へ、想いを乗せて。<br/>クルーとしてログインし、仲間にショコラを届けよう。
+          <div className="text-center px-4 pb-12 animate-fade-in-up relative z-20">
+            <p className="mb-10 text-base text-[#e6e6fa]/80 leading-8 font-serif italic drop-shadow-md">
+              銀河の彼方へ、想いを乗せて。<br/>クルーとしてログインし、<br/>仲間にショコラを届けよう。
             </p>
-            <button onClick={signIn} className="group relative inline-flex items-center justify-center px-10 py-4 font-bold text-white transition-all duration-300 bg-[#5865F2] rounded-full hover:bg-[#4752c4] hover:shadow-[0_0_30px_rgba(88,101,242,0.4)] hover:-translate-y-0.5 overflow-hidden">
-               <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></span>
-               <span className="relative z-10 flex items-center gap-3 text-sm tracking-widest">
-                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.6853-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0323 1.5864 4.0079 2.5543 5.9429 3.1686a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 00.0306-.0557c3.9437 1.8038 8.1798 1.8038 12.0583 0a.0739.0739 0 00.0305.0557c.1202.099.246.1981.3719.2914a.077.077 0 01-.0077.1277c-.5979.3428-1.2194.6447-1.8721.8923a.0756.0756 0 00-.0416.1057c.3529.699.7644 1.3638 1.226 1.9942a.0773.0773 0 00.0842.0276c1.9349-.6143 3.9106-1.5822 5.9429-3.1686a.0824.0824 0 00.0312-.0561c.493-5.4786-.6425-9.998-3.0808-13.6603a.0718.0718 0 00-.032-.0277zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.419-2.1568 2.419zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.419-2.1568 2.419z"/></svg>
-                 Discordでアクセス
+            <button onClick={signIn} className="group relative inline-flex items-center justify-center px-12 py-4 font-bold text-white transition-all duration-300 bg-[#5865F2] rounded-full hover:bg-[#4752c4] hover:scale-105 shadow-[0_0_30px_rgba(88,101,242,0.5)] overflow-hidden">
+               <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></span>
+               <span className="relative z-10 flex items-center gap-2">
+                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.6853-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0323 1.5864 4.0079 2.5543 5.9429 3.1686a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 00.0306-.0557c3.9437 1.8038 8.1798 1.8038 12.0583 0a.0739.0739 0 00.0305.0557c.1202.099.246.1981.3719.2914a.077.077 0 01-.0077.1277c-.5979.3428-1.2194.6447-1.8721.8923a.0756.0756 0 00-.0416.1057c.3529.699.7644 1.3638 1.226 1.9942a.0773.0773 0 00.0842.0276c1.9349-.6143 3.9106-1.5822 5.9429-3.1686a.0824.0824 0 00.0312-.0561c.493-5.4786-.6425-9.998-3.0808-13.6603a.0718.0718 0 00-.032-.0277zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.419-2.1568 2.419zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.419-2.1568 2.419z"/></svg>
+                 Discordで入場する
                </span>
             </button>
           </div>
         ) : (
-          <div className="animate-fade-in-up space-y-6 relative z-20 max-w-lg mx-auto mb-24">
-            <div className="bg-[#1a1033]/40 p-1 rounded-3xl border border-white/10 backdrop-blur-md shadow-2xl relative overflow-hidden">
-              {/* スターログ・パネル */}
-              <div className="bg-[#0f0f1a]/60 rounded-[20px] p-6 text-center relative z-10">
-                 <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
-                   <div className="text-left">
-                     <p className="text-[9px] text-white/40 uppercase tracking-widest mb-1">CURRENT RANK</p>
+          <div className="animate-fade-in-up space-y-8 relative z-20 max-w-lg mx-auto mb-20">
+            <div className="bg-[#1a1033]/60 p-6 rounded-2xl border border-[#ffd700]/30 backdrop-blur-xl mx-2 shadow-[0_0_30px_rgba(26,16,51,0.5)] relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
+              
+              <div className="relative z-10 mb-4 text-center border-b border-[#ffd700]/20 pb-4">
+                 <p className="text-[10px] text-[#ffd700] uppercase tracking-widest mb-1">STAR LOG</p>
+                 <div className="flex items-center justify-center gap-4">
+                   <div>
+                     <p className="text-xs text-[#e6e6fa]/60">GIFTED</p>
+                     <p className="text-2xl font-black text-[#ffd700]">{myTotalSent}</p>
+                   </div>
+                   <div className="h-8 w-px bg-[#ffd700]/30"></div>
+                   <div>
+                     <p className="text-xs text-[#e6e6fa]/60">TITLE</p>
                      <p className="text-lg font-bold text-[#e6e6fa]">{myRankTitle}</p>
                    </div>
-                   <div className="text-right">
-                     <p className="text-[9px] text-[#ffd700]/70 uppercase tracking-widest mb-1">TOTAL SENT</p>
-                     <p className="text-2xl font-black font-mono text-[#ffd700]">{myTotalSent}</p>
-                   </div>
                  </div>
+              </div>
 
-                 <div className="flex justify-between items-center mb-2">
-                    <label className="text-[9px] text-white/40 uppercase tracking-widest font-bold">CREW NAME</label>
-                    <button onClick={signOut} className="text-[9px] text-white/30 hover:text-white transition-colors">LOGOUT</button>
-                 </div>
-                 <div className="flex items-center gap-2 bg-black/30 p-1 pl-3 rounded-xl border border-white/5 focus-within:border-[#ffd700]/50 transition-colors">
-                   <input type="text" className="flex-1 bg-transparent font-bold text-base text-white focus:outline-none" value={myProfileName} onChange={(e) => setMyProfileName(e.target.value)} />
-                   <button onClick={handleUpdateName} disabled={isActionLoading} className="text-[10px] font-bold bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-colors text-white/80">
-                     {isActionLoading ? '...' : 'UPDATE'}
-                   </button>
-                 </div>
+              <div className="flex justify-between items-center mb-4 relative z-10">
+                <label className="text-[10px] text-[#ffd700] uppercase tracking-wider block font-bold flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 bg-[#ffd700] rounded-full animate-pulse"></span>
+                  クルー名
+                </label>
+                <button onClick={signOut} className="text-[10px] text-[#e6e6fa]/60 hover:text-[#ff3366] transition-colors underline decoration-dotted">ログアウト</button>
+              </div>
+              <div className="flex gap-3 items-center relative z-10">
+                <input type="text" className="flex-1 bg-[#0a0e1a]/50 font-bold text-xl text-[#e6e6fa] border-b-2 border-[#ffd700]/30 focus:border-[#ff3366] focus:outline-none transition-all pb-2 px-2 rounded-t-lg focus:bg-[#0a0e1a]/80" value={myProfileName} onChange={(e) => setMyProfileName(e.target.value)} />
+                <button onClick={handleUpdateName} disabled={isActionLoading} className={`text-[10px] font-bold px-6 py-3 rounded-lg transition-all shadow-lg relative overflow-hidden group ${isActionLoading ? 'bg-[#1a1033] text-[#e6e6fa]/50 cursor-wait' : 'bg-gradient-to-r from-[#ff3366] to-[#ffd700] text-[#1a1033] hover:shadow-[0_0_15px_#ff3366]'}`}>
+                  <span className="relative z-10">{isActionLoading ? '更新中...' : '更新'}</span>
+                  {!isActionLoading && <span className="absolute inset-0 bg-white/30 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>}
+                </button>
               </div>
             </div>
 
-            <div className="backdrop-blur-md bg-black/20 rounded-3xl border border-white/5 p-4">
-              <div className="mb-4 flex items-center justify-between px-2">
-                <h2 className="font-bold text-[#ffd700] text-xs tracking-[0.2em] flex items-center gap-2 opacity-80">
-                  <span className="text-base">👾</span> CAST CREWMATES
+            <div className="custom-scrollbar px-2 max-h-[500px] overflow-y-auto pb-24">
+              <div className="px-4 mb-4 flex items-center justify-between">
+                <h2 className="font-bold text-[#ffd700] text-sm tracking-[0.2em] flex items-center gap-2">
+                  <span className="text-xl">👾</span> CAST CREWMATES
                 </h2>
-                {selectedUsers.size > 0 && <span className="bg-[#ff3366] text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">{selectedUsers.size} SELECTED</span>}
+                {selectedUsers.size > 0 && <span className="bg-[#ff3366] text-white text-[10px] font-bold px-4 py-1 rounded-full shadow-[0_0_10px_#ff3366] animate-bounce">{selectedUsers.size}名 選択中</span>}
               </div>
-              <div className="mb-4 relative group">
-                <input type="text" placeholder="Search crewmate..." className="w-full px-4 py-3 rounded-xl bg-black/30 text-white placeholder-white/20 text-sm focus:outline-none border border-white/10 focus:border-[#ffd700]/30 transition-all" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20">🔍</span>
+              <div className="px-4 mb-6 relative">
+                <input type="text" placeholder="クルーメイトを名前で検索..." className="w-full px-5 py-4 rounded-2xl bg-[#1a1033]/80 text-[#e6e6fa] placeholder-[#e6e6fa]/30 text-sm focus:outline-none border-2 border-[#ffd700]/20 focus:border-[#ffd700]/80 focus:shadow-[0_0_15px_rgba(255,215,0,0.3)] transition-all backdrop-blur-md" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+                <span className="absolute right-8 top-1/2 -translate-y-1/2 text-[#ffd700]/50">🔍</span>
               </div>
               
-              <div className="custom-scrollbar px-1 max-h-[400px] overflow-y-auto pb-4">
-                {filteredMembers.length === 0 ? <p className="text-center text-white/20 py-8 text-xs tracking-widest">NO SIGNAL FOUND</p> : 
+              <div className="px-2">
+                {filteredMembers.length === 0 ? <p className="text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">クルーメイトが見つかりません</p> : 
                   filteredMembers.map((m) => <UserCard key={m.id} profile={m} />)
                 }
               </div>
@@ -552,31 +561,31 @@ function GameContent({ session }: { session: any }) {
 
             <div className="fixed bottom-6 left-0 right-0 px-6 z-50 pointer-events-none">
               <div className="max-w-lg mx-auto pointer-events-auto">
-                <button onClick={handleSend} disabled={selectedUsers.size === 0} className={`w-full py-5 rounded-2xl font-black text-lg tracking-[0.2em] shadow-2xl transition-all duration-300 relative overflow-hidden group border border-white/10 ${selectedUsers.size === 0 ? 'bg-[#1a1033]/90 text-white/20 cursor-not-allowed backdrop-blur-sm grayscale' : 'bg-gradient-to-r from-[#ff3366] via-[#ff00ff] to-[#ff3366] bg-[length:200%_auto] animate-gradient text-white hover:scale-[1.02] hover:shadow-[0_0_40px_rgba(255,51,102,0.5)]'}`}>
-                  <span className="relative z-10 flex items-center justify-center gap-2 text-sm md:text-lg">
-                    {selectedUsers.size > 0 ? `LAUNCH CHOCOLAT (${selectedUsers.size})` : 'SELECT TARGET'} 🚀
-                  </span>
+                <button onClick={handleSend} disabled={selectedUsers.size === 0} className={`w-full py-6 rounded-3xl font-black text-lg tracking-[0.2em] shadow-2xl transition-all relative overflow-hidden group border-2 ${selectedUsers.size === 0 ? 'bg-[#1a1033]/90 border-white/5 text-[#e6e6fa]/30 backdrop-blur-sm cursor-not-allowed translate-y-20 opacity-0' : 'bg-gradient-to-r from-[#ff3366] via-[#ffd700] to-[#ff3366] bg-[length:200%_auto] animate-gradient border-[#ffd700] text-[#1a1033] hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_30px_rgba(255,51,102,0.8)]'}`}>
+                  <span className="relative z-10 flex items-center justify-center gap-2">チョコを贈る ({selectedUsers.size}) 🚀</span>
+                  {selectedUsers.size > 0 && <div className="absolute inset-0 bg-white/40 mix-blend-overlay translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"></div>}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* 🔄 ランキングエリア */}
+        {/* 🔄 配置変更: ランキングを後ろへ */}
         <div className="mb-12 animate-fade-in-up relative">
-          <div className="absolute inset-0 bg-gradient-to-b from-[#ffd700]/5 to-transparent blur-3xl -z-10 rounded-full opacity-20"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-[#ffd700]/5 to-transparent blur-xl -z-10 rounded-full"></div>
           
-          <div className="transform origin-top">
-            <h2 className="text-center text-[#ffd700] font-bold text-xs tracking-[0.4em] mb-10 flex items-center justify-center gap-4 opacity-80">
-              <span className="h-px w-8 bg-gradient-to-r from-transparent to-[#ffd700]"></span>
+          {/* 修正ポイント: scaleを削除して等倍表示に */}
+          <div className="origin-top">
+            <h2 className="text-center text-[#ffd700] font-bold text-sm tracking-[0.4em] mb-8 flex items-center justify-center gap-4">
+              <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#ffd700]"></span>
               GALAXY RANKING
-              <span className="h-px w-8 bg-gradient-to-l from-transparent to-[#ffd700]"></span>
+              <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#ffd700]"></span>
             </h2>
             
             <div className="px-2">
-              <div className="flex flex-col md:flex-row gap-8 items-start">
+              <div className="flex flex-col md:flex-row gap-6 items-start">
                  <div className="w-full md:w-1/2 flex flex-col gap-3">
-                    <div className="text-center text-[#ffd700]/60 text-[10px] tracking-widest mb-1 font-mono">{'/// TOP SQUADRON ///'}</div>
+                    <div className="hidden md:block text-center text-[#ffd700] text-xs tracking-widest mb-2 opacity-70">{'/// TOP SQUADRON ///'}</div>
                     {Array.from({ length: 5 }).map((_, i) => {
                        const ranker = rankingList[i];
                        return ranker ? <UserCard key={ranker.id} profile={ranker} index={i} isRanking={true} /> : <EmptyCard key={`empty-${i}`} index={i} />;
@@ -584,7 +593,7 @@ function GameContent({ session }: { session: any }) {
                  </div>
                  
                  <div className="w-full md:w-1/2 flex flex-col gap-3">
-                    <div className="text-center text-white/30 text-[10px] tracking-widest mb-1 font-mono">{'/// RISING STARS ///'}</div>
+                    <div className="hidden md:block text-center text-[#e6e6fa] text-xs tracking-widest mb-2 opacity-50">{'/// RISING STARS ///'}</div>
                     {Array.from({ length: 5 }).map((_, i) => {
                        const rankIndex = i + 5;
                        const ranker = rankingList[rankIndex];
@@ -594,10 +603,11 @@ function GameContent({ session }: { session: any }) {
               </div>
             </div>
           </div>
+          {/* マイナスマージンも削除 */}
         </div>
 
       </div>
-      {user && <p className="text-center text-[9px] text-white/10 mt-8 font-mono tracking-widest absolute bottom-2 left-0 right-0 pointer-events-none">VOICE NOVA × COSMIC CHOCOLAT SYSTEM v2.1</p>}
+      {user && <p className="text-center text-[10px] text-[#ffd700]/50 mt-8 font-mono tracking-widest absolute bottom-2 left-0 right-0">VOICE NOVA × COSMIC CHOCOLAT SYSTEM</p>}
     </main>
   );
 }
