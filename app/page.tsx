@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { useEffect, useState, useRef, useCallback } from 'react';
 
 // ==========================================
-// ⚙️ 設定 (Logic remains the same)
+// ⚙️ 設定
 // ==========================================
 const supabaseUrl = 'https://cghuhjiwbjtvgulmldgv.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnaHVoaml3Ymp0dmd1bG1sZGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4ODUwMzEsImV4cCI6MjA4NTQ2MTAzMX0.qW8lkhppWdRf3k-1o3t4QdR7RJCMwLW7twX37RrSDQQ';
@@ -45,7 +45,6 @@ const CosmicBackground = () => {
   const [stars, setStars] = useState('');
   
   useEffect(() => {
-    // 星の生成
     let value = '';
     for (let i = 0; i < 300; i++) {
       const x = Math.floor(Math.random() * 3000);
@@ -59,13 +58,13 @@ const CosmicBackground = () => {
 
   return (
     <div className="fixed inset-0 z-0 overflow-hidden bg-[#030014]">
-      {/* うごめく星雲 (CSS Animation) */}
+      {/* うごめく星雲 */}
       <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] animate-aurora opacity-30 blur-[100px] bg-gradient-to-r from-[#4f46e5] via-[#ff00ff] to-[#4f46e5]"></div>
       
       {/* 星屑 */}
       <div className="absolute inset-0 animate-twinkle" style={{ boxShadow: stars }}></div>
       
-      {/* 走査線ノイズ (Cyberpunk feel) */}
+      {/* 走査線ノイズ */}
       <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
 
       <style jsx>{`
@@ -175,7 +174,7 @@ function GameContent({ session }: { session: any }) {
   const [isLogOpen, setIsLogOpen] = useState(false);
 
   // ----------------------------------------
-  // 🔄 データ取得 (Logic unchanged)
+  // 🔄 データ取得
   // ----------------------------------------
   const fetchConfig = useCallback(async () => {
     const { data } = await supabase.from('system_settings').select('*');
@@ -249,14 +248,18 @@ function GameContent({ session }: { session: any }) {
 
   useEffect(() => {
     isMounted.current = true;
-    fetchConfig(); fetchRanking(); fetchLogs(); 
+    fetchConfig(); 
+    fetchRanking(); 
+    fetchLogs(); 
     if (user) fetchUserData();
+    
     const channel = supabase.channel('realtime')
       .on('postgres_changes', { event: '*', schema: 'public' }, () => { fetchRanking(); fetchLogs(); if (user) fetchUserData(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, () => { fetchConfig(); })
       .subscribe();
     return () => { isMounted.current = false; supabase.removeChannel(channel); };
-  }, [user]);
+    // 🛠️ 修正: 依存配列にfetch関数を追加してWarningを解消
+  }, [user, fetchConfig, fetchRanking, fetchLogs, fetchUserData]);
 
   // ----------------------------------------
   // 🎮 アクション
@@ -312,7 +315,7 @@ function GameContent({ session }: { session: any }) {
     const cooldown = isCooldown(detail?.last_received_at);
     const avatar = profile.avatar_url || "https://www.gravatar.com/avatar?d=mp";
 
-    // ランクごとの色定義 (Gold, Silver, Bronze, Glass)
+    // ランクごとの色定義
     const rankColors = ["border-[#ffd700] bg-[#ffd700]/10", "border-[#c0c0c0] bg-[#c0c0c0]/10", "border-[#cd7f32] bg-[#cd7f32]/10", "border-white/10 bg-white/5"];
     const cardStyle = isRanking ? (rankColors[index] || rankColors[3]) : rankColors[3];
 
@@ -327,7 +330,6 @@ function GameContent({ session }: { session: any }) {
           ${isSelected ? 'border-[#ff3366] bg-[#ff3366]/20 shadow-[0_0_30px_rgba(255,51,102,0.4)]' : ''}
         `}
       >
-        {/* 光る走査線アニメーション */}
         {!isMe && !cooldown && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none"></div>}
         
         <div className="flex items-center gap-4 w-full relative z-10">
@@ -343,7 +345,8 @@ function GameContent({ session }: { session: any }) {
           
           <div className="relative group-hover:scale-110 transition-transform duration-500">
              <div className={`absolute -inset-1 rounded-full blur opacity-40 ${isRanking && index < 3 ? 'bg-gradient-to-r from-yellow-400 to-pink-600' : 'bg-blue-600'}`}></div>
-             <img src={avatar} alt="icon" className="relative w-12 h-12 rounded-full border border-white/50 object-cover" />
+             {/* 🛠️ 修正: alt属性を追加 */}
+             <img src={avatar} alt="User Avatar" className="relative w-12 h-12 rounded-full border border-white/50 object-cover" />
           </div>
 
           <div className="flex-1 overflow-hidden">
@@ -386,10 +389,11 @@ function GameContent({ session }: { session: any }) {
                 {log.quantity > 1 && <span className="text-[#ffd700] font-bold">☄️ x{log.quantity}</span>}
               </div>
               <div className="flex items-center gap-2">
-                <img src={log.sender_avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-5 h-5 rounded-full" />
+                {/* 🛠️ 修正: alt属性を追加 */}
+                <img src={log.sender_avatar || 'https://www.gravatar.com/avatar?d=mp'} alt="Sender" className="w-5 h-5 rounded-full" />
                 <span className="text-cyan-300 font-bold truncate max-w-[70px]">{log.sender_name}</span>
                 <span className="text-white/30">➜</span>
-                <img src={log.receiver_avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-5 h-5 rounded-full" />
+                <img src={log.receiver_avatar || 'https://www.gravatar.com/avatar?d=mp'} alt="Receiver" className="w-5 h-5 rounded-full" />
                 <span className="text-pink-300 font-bold truncate max-w-[70px]">{log.receiver_name}</span>
               </div>
             </div>
@@ -500,14 +504,16 @@ function GameContent({ session }: { session: any }) {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <div className="space-y-3">
-                <div className="text-center text-[#ffd700]/50 text-[10px] tracking-widest mb-2 font-mono">/// TOP SQUADRON ///</div>
+                {/* 🛠️ 修正: スラッシュをクォートで囲む */}
+                <div className="text-center text-[#ffd700]/50 text-[10px] tracking-widest mb-2 font-mono">{'/// TOP SQUADRON ///'}</div>
                 {Array.from({ length: 5 }).map((_, i) => {
                    const ranker = rankingList[i];
                    return ranker ? <UserCard key={ranker.id} profile={ranker} index={i} isRanking={true} /> : <div key={i} className="h-[104px] rounded-2xl border border-white/5 bg-white/5 animate-pulse"></div>;
                 })}
              </div>
              <div className="space-y-3">
-                <div className="text-center text-white/30 text-[10px] tracking-widest mb-2 font-mono">/// RISING STARS ///</div>
+                {/* 🛠️ 修正: スラッシュをクォートで囲む */}
+                <div className="text-center text-white/30 text-[10px] tracking-widest mb-2 font-mono">{'/// RISING STARS ///'}</div>
                 {Array.from({ length: 5 }).map((_, i) => {
                    const rankIndex = i + 5;
                    const ranker = rankingList[rankIndex];
