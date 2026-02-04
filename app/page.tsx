@@ -37,7 +37,7 @@ type ActivityLog = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント
+// 🌠 星空生成コンポーネント (修正版: z-index調整)
 // ==========================================
 const StarBackground = () => {
   const [starsSmall, setStarsSmall] = useState('');
@@ -67,7 +67,8 @@ const StarBackground = () => {
   }, []);
 
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-[#050510]">
+    // 🛠️ 修正: z-indexをマイナスにして、絶対にコンテンツの邪魔をしないように変更
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1] bg-[#050510]">
       <style jsx>{`
         @keyframes animStar { from { transform: translateY(0px); } to { transform: translateY(-2000px); } }
         @keyframes shooting {
@@ -75,6 +76,7 @@ const StarBackground = () => {
           70% { opacity: 1; }
           100% { transform: translateX(-1000px) translateY(1000px) rotate(315deg); opacity: 0; }
         }
+        /* 🛠️ 修正: 幅と高さを1pxに戻し、巨大化による消失バグを防止 */
         .star-layer { position: absolute; left: 0; top: 0; background: transparent; width: 1px; height: 1px; }
         .shooting-star {
           position: absolute; top: 0; right: 0; width: 4px; height: 4px;
@@ -402,7 +404,8 @@ function GameContent({ session }: { session: any }) {
 
     return (
       <div 
-        onClick={() => !isMe && !cooldown && handleClickUser(profile.id)}
+        // 🛠️ 修正: 条件付きでクリックを無効にするのではなく、常にハンドラを呼んでアラートを出すように変更
+        onClick={() => handleClickUser(profile.id)}
         className={`
           relative flex items-center justify-between p-4 mb-3 rounded-2xl transition-all duration-500 border select-none backdrop-blur-md overflow-hidden group h-[104px]
           ${isMe ? 'bg-[#1a1033]/40 border-[#ffd700]/20 cursor-default' : 'cursor-pointer'}
@@ -505,7 +508,7 @@ function GameContent({ session }: { session: any }) {
             </button>
           </div>
         ) : (
-          <div className="animate-fade-in-up space-y-8 relative z-20 max-w-lg mx-auto mb-20">
+          <div className="animate-fade-in-up space-y-8 relative z-20 w-full max-w-4xl mx-auto mb-20">
             <div className="bg-[#1a1033]/60 p-6 rounded-2xl border border-[#ffd700]/30 backdrop-blur-xl mx-2 shadow-[0_0_30px_rgba(26,16,51,0.5)] relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
               
@@ -574,7 +577,6 @@ function GameContent({ session }: { session: any }) {
         <div className="mb-12 animate-fade-in-up relative">
           <div className="absolute inset-0 bg-gradient-to-b from-[#ffd700]/5 to-transparent blur-xl -z-10 rounded-full"></div>
           
-          {/* 修正ポイント: scaleを削除して等倍表示に */}
           <div className="origin-top">
             <h2 className="text-center text-[#ffd700] font-bold text-sm tracking-[0.4em] mb-8 flex items-center justify-center gap-4">
               <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#ffd700]"></span>
@@ -585,7 +587,7 @@ function GameContent({ session }: { session: any }) {
             <div className="px-2">
               <div className="flex flex-col md:flex-row gap-6 items-start">
                  <div className="w-full md:w-1/2 flex flex-col gap-3">
-                    <div className="hidden md:block text-center text-[#ffd700] text-xs tracking-widest mb-2 opacity-70">{'/// TOP SQUADRON ///'}</div>
+                    <div className="hidden md:block text-center text-[#ffd700] text-xs tracking-widest mb-2 opacity-70">{'/// TOP STARS ///'}</div>
                     {Array.from({ length: 5 }).map((_, i) => {
                        const ranker = rankingList[i];
                        return ranker ? <UserCard key={ranker.id} profile={ranker} index={i} isRanking={true} /> : <EmptyCard key={`empty-${i}`} index={i} />;
@@ -603,7 +605,6 @@ function GameContent({ session }: { session: any }) {
               </div>
             </div>
           </div>
-          {/* マイナスマージンも削除 */}
         </div>
 
       </div>
