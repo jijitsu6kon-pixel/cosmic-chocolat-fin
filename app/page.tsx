@@ -37,7 +37,7 @@ type ActivityLog = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント (省エネ対策・完全版)
+// 🌠 星空生成コンポーネント (修正完了版)
 // ==========================================
 const StarBackground = () => {
   const [starsSmall, setStarsSmall] = useState('');
@@ -46,7 +46,7 @@ const StarBackground = () => {
   const generateStars = (count: number) => {
     let value = '';
     const height = 2000; 
-    const width = 3000; // 3000pxに拡張して右端切れを防ぐ
+    const width = 2500; // 配置範囲は広くてOK
 
     for (let i = 0; i < count; i++) {
       const x = Math.floor(Math.random() * width);
@@ -55,6 +55,7 @@ const StarBackground = () => {
       const size = opacity > 0.8 ? 2 : 1;
       const color = `rgba(255, 255, 255, ${opacity})`;
 
+      // オリジナルの星と、ループ用のコピー（下にずらしたもの）
       value += `${x}px ${y}px 0px ${size}px ${color}, `;
       value += `${x}px ${y + height}px 0px ${size}px ${color}, `;
     }
@@ -62,8 +63,8 @@ const StarBackground = () => {
   };
 
   useEffect(() => {
-    setStarsSmall(generateStars(300)); // 数を調整
-    setStarsMedium(generateStars(100));
+    setStarsSmall(generateStars(200));
+    setStarsMedium(generateStars(50));
   }, []);
 
   return (
@@ -83,9 +84,9 @@ const StarBackground = () => {
           left: 0; 
           top: 0; 
           background: transparent; 
-          /* ⚠️ 修正: 1pxではなく巨大なサイズにして、ブラウザに「まだ画面にあるよ」と認識させる */
-          width: 3000px; 
-          height: 4000px; 
+          /* ⚠️ ここを1pxに戻しました！これで星が「点」として復活します */
+          width: 1px; 
+          height: 1px; 
         }
         .shooting-star {
           position: absolute; top: 0; right: 0; width: 4px; height: 4px;
@@ -503,7 +504,7 @@ function GameContent({ session }: { session: any }) {
           </div>
         </div>
 
-        {/* 🔄 配置変更: ログイン/操作エリアを先に表示 */}
+        {/* 🔄 ログイン/操作エリア (PCでもスマホでもランキングより先に表示) */}
         {!user ? (
           <div className="text-center px-4 pb-12 animate-fade-in-up relative z-20">
             <p className="mb-10 text-base text-[#e6e6fa]/80 leading-8 font-serif italic drop-shadow-md">
