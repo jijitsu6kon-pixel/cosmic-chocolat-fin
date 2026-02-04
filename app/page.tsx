@@ -2,7 +2,6 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import Image from 'next/image'; // 最適化のためImageコンポーネント推奨ですが、今回はimgタグのままスタイル調整します
 
 // ==========================================
 // ⚙️ 設定
@@ -38,7 +37,7 @@ type ActivityLog = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント (安定版)
+// 🌠 星空生成コンポーネント (修正版)
 // ==========================================
 const StarBackground = () => {
   const [starsSmall, setStarsSmall] = useState('');
@@ -143,9 +142,11 @@ const ActivityPanel = ({ isOpen, onClose, logs }: { isOpen: boolean, onClose: ()
           {logs.length === 0 ? <p className="text-center text-white/30 text-xs py-10">NO SIGNAL</p> : logs.map((log) => (
             <div key={log.id} className="bg-white/5 p-3 rounded-lg border border-white/5 text-xs hover:bg-white/10 transition-colors group">
               <div className="flex items-center gap-2 mb-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={log.sender_avatar || 'https://www.gravatar.com/avatar?d=mp'} alt="Sender" className="w-5 h-5 rounded-full border border-white/20" />
                 <span className="text-[#ffd700] font-bold truncate max-w-[70px]">{log.sender_name}</span>
                 <span className="text-white/30 text-[10px]">▶</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={log.receiver_avatar || 'https://www.gravatar.com/avatar?d=mp'} alt="Receiver" className="w-5 h-5 rounded-full border border-white/20" />
                 <span className="text-white font-bold truncate max-w-[70px]">{log.receiver_name}</span>
               </div>
@@ -375,7 +376,6 @@ function GameContent({ session }: { session: any }) {
   const filteredMembers = memberList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
 
   const RankBadge = ({ index }: { index: number }) => {
-    // グラデーションの微調整: よりリッチなゴールド、シルバー、ブロンズ
     const styles = [
       "text-transparent bg-clip-text bg-gradient-to-b from-[#ffd700] to-[#b8860b] drop-shadow-[0_0_8px_rgba(255,215,0,0.6)] scale-125", 
       "text-transparent bg-clip-text bg-gradient-to-b from-[#e6e6fa] to-[#708090] drop-shadow-[0_0_5px_rgba(230,230,250,0.4)] scale-110", 
@@ -425,6 +425,7 @@ function GameContent({ session }: { session: any }) {
           </div>
           
           <div className="flex-shrink-0 relative">
+             {/* eslint-disable-next-line @next/next/no-img-element */}
              <img src={avatar} alt="icon" className="w-12 h-12 rounded-full border border-white/10 object-cover shadow-sm group-hover:scale-105 transition-transform" />
              {isRanking && index < 3 && <div className="absolute -top-1 -right-1 text-xs">👑</div>}
           </div>
@@ -575,7 +576,7 @@ function GameContent({ session }: { session: any }) {
             <div className="px-2">
               <div className="flex flex-col md:flex-row gap-8 items-start">
                  <div className="w-full md:w-1/2 flex flex-col gap-3">
-                    <div className="text-center text-[#ffd700]/60 text-[10px] tracking-widest mb-1 font-mono">/// TOP SQUADRON ///</div>
+                    <div className="text-center text-[#ffd700]/60 text-[10px] tracking-widest mb-1 font-mono">{'/// TOP SQUADRON ///'}</div>
                     {Array.from({ length: 5 }).map((_, i) => {
                        const ranker = rankingList[i];
                        return ranker ? <UserCard key={ranker.id} profile={ranker} index={i} isRanking={true} /> : <EmptyCard key={`empty-${i}`} index={i} />;
@@ -583,7 +584,7 @@ function GameContent({ session }: { session: any }) {
                  </div>
                  
                  <div className="w-full md:w-1/2 flex flex-col gap-3">
-                    <div className="text-center text-white/30 text-[10px] tracking-widest mb-1 font-mono">/// RISING STARS ///</div>
+                    <div className="text-center text-white/30 text-[10px] tracking-widest mb-1 font-mono">{'/// RISING STARS ///'}</div>
                     {Array.from({ length: 5 }).map((_, i) => {
                        const rankIndex = i + 5;
                        const ranker = rankingList[rankIndex];
