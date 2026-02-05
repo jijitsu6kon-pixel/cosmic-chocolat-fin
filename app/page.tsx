@@ -39,7 +39,7 @@ type ActivityLog = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント
+// 🌠 背景の星空 (静的・ワープ移動)
 // ==========================================
 const StarBackground = memo(() => {
   const [starsSmall, setStarsSmall] = useState('');
@@ -84,6 +84,90 @@ const StarBackground = memo(() => {
   );
 });
 StarBackground.displayName = 'StarBackground';
+
+// ==========================================
+// 💫 流れ星演出レイヤー (ピンク・フェードアウト・低頻度)
+// ==========================================
+const ShootingStarLayer = memo(() => {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-[1]">
+      <style jsx>{`
+        /* 頻度調整の仕組み:
+           アニメーション全体の時間を長く設定し(12000ms = 12秒)、
+           そのうち最初の25%(3秒)だけ実際に星を流し、
+           残りの75%(9秒)は透明のまま待機させることで頻度を下げています。
+        */
+
+        /* 流れ星の尾（ピンクのグラデーション） */
+        .shooting_star {
+          position: absolute;
+          height: 2px;
+          /* 青からピンクへ変更 */
+          background: linear-gradient(-45deg, rgba(255, 51, 153, 1), rgba(255, 0, 100, 0));
+          border-radius: 999px;
+          /* ピンクの光彩 */
+          filter: drop-shadow(0 0 6px rgba(255, 51, 153, 1));
+          /* アニメーション時間を3000msから12000msへ延長 */
+          animation: tail 12000ms ease-in-out infinite, shooting 12000ms ease-in-out infinite;
+          opacity: 0; /* 初期状態は非表示 */
+        }
+
+        /* 流れ星の先端（円形の核・ピンク） */
+        .shooting_star::before {
+          content: '';
+          position: absolute;
+          top: 50%;
+          right: -1px;
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          /* ピンクの発光体 */
+          background: rgba(255, 51, 153, 1);
+          box-shadow: 0 0 4px rgba(255, 51, 153, 0.8), 0 0 8px rgba(255, 51, 153, 0.4);
+          /* 先端も小さくなるアニメーションを追加 */
+          animation: shrinkHead 12000ms ease-in-out infinite;
+        }
+        
+        /* 尾の長さアニメーション (最初の25%で完結させる) */
+        @keyframes tail {
+          0% { width: 0; }
+          10% { width: 100px; } /* ピーク */
+          25% { width: 0; } /* 25%地点で消える */
+          100% { width: 0; } /* 残りは待機 */
+        }
+
+        /* 移動とフェードアウトのアニメーション (最初の25%で完結させる) */
+        @keyframes shooting {
+          0% { transform: translateX(0) translateY(0) rotateZ(45deg); opacity: 1; }
+          20% { opacity: 1; } /* 終盤まで表示 */
+          25% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; } /* 25%地点で完全に透明に */
+          100% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; } /* 残りは透明のまま待機 */
+        }
+
+        /* 🆕 先端が小さくなるアニメーション */
+        @keyframes shrinkHead {
+          0% { transform: translateY(-50%) scale(1); }
+          15% { transform: translateY(-50%) scale(1); } /* 途中まで大きさキープ */
+          25% { transform: translateY(-50%) scale(0); } /* 25%地点でサイズ0に */
+          100% { transform: translateY(-50%) scale(0); } /* 残りはサイズ0で待機 */
+        }
+
+        /* 開始位置と遅延時間（12秒の中で分散させる） */
+        .star-1 { top: -5%; left: 50%; animation-delay: 0ms; }
+        .star-2 { top: 25%; left: 85%; animation-delay: 2400ms; }
+        .star-3 { top: -15%; left: 15%; animation-delay: 4800ms; }
+        .star-4 { top: 50%; left: 5%;   animation-delay: 7200ms; }
+        .star-5 { top: 5%; left: 95%;   animation-delay: 9600ms; }
+      `}</style>
+      <div className="shooting_star star-1"></div>
+      <div className="shooting_star star-2"></div>
+      <div className="shooting_star star-3"></div>
+      <div className="shooting_star star-4"></div>
+      <div className="shooting_star star-5"></div>
+    </div>
+  );
+});
+ShootingStarLayer.displayName = 'ShootingStarLayer';
 
 // ==========================================
 // 🚀 ロケット演出レイヤー
@@ -327,6 +411,7 @@ export default function CosmicChocolatApp() {
     return (
       <div className="min-h-screen bg-[#050510] flex items-center justify-center overflow-hidden relative">
         <StarBackground />
+        <ShootingStarLayer />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a1033]/40 via-[#0a0e1a]/60 to-black/80 z-0"></div>
         <div className="text-center relative z-10">
           <div className="relative w-24 h-24 mx-auto mb-8 animate-bounce"><span className="text-6xl">🛸</span></div>
@@ -583,6 +668,7 @@ function GameContent({ session }: { session: any }) {
       </div>
 
       <StarBackground />
+      <ShootingStarLayer />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1a1033]/30 via-[#0a0e1a]/80 to-black z-0"></div>
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-[#ffd700]/5 via-[#ff3366]/5 to-transparent z-0 pointer-events-none blur-3xl"></div>
 
