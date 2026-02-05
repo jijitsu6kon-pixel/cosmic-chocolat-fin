@@ -67,8 +67,7 @@ const StarBackground = memo(() => {
   }, []);
 
   return (
-    // 🛠️ 修正: ここに宇宙色(bg-[#050510])を指定し、z-0にする
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-[#050510]">
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1] bg-[#050510]">
       <style jsx>{`
         @keyframes animStar { from { transform: translateY(0px); } to { transform: translateY(-2000px); } }
         @keyframes shooting {
@@ -166,6 +165,113 @@ const ActivityPanel = memo(({ isOpen, onClose, logs }: { isOpen: boolean, onClos
 ActivityPanel.displayName = 'ActivityPanel';
 
 // ==========================================
+// 🎨 UIパーツ (外出しして安定化)
+// ==========================================
+const RankBadge = memo(({ index }: { index: number }) => {
+  const styles = [
+    "text-transparent bg-clip-text bg-gradient-to-b from-[#ffd700] to-[#e6b800] drop-shadow-[0_0_8px_rgba(255,215,0,0.8)] scale-125", 
+    "text-transparent bg-clip-text bg-gradient-to-b from-[#e6e6fa] to-[#c0c0c0] drop-shadow-[0_0_5px_rgba(230,230,250,0.6)] scale-110", 
+    "text-transparent bg-clip-text bg-gradient-to-b from-[#ffab91] to-[#d84315] drop-shadow-[0_0_5px_rgba(255,171,145,0.5)] scale-105"
+  ];
+  return <span className={`font-black text-xl ${styles[index] || "text-[#8d6e63] opacity-70"}`}>{index + 1}</span>;
+});
+RankBadge.displayName = 'RankBadge';
+
+const EmptyCard = memo(({ index }: { index: number }) => (
+  <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border-2 border-dashed border-[#e6e6fa]/10 bg-[#1a1033]/20 select-none h-[96px]">
+     <div className="flex items-center gap-4 w-full opacity-30">
+        <div className="w-8 text-center font-black text-xl text-[#8d6e63]">{index + 1}</div>
+        <div className="flex-1"><p className="font-bold text-base text-[#e6e6fa] tracking-widest text-xs">データなし</p></div>
+     </div>
+  </div>
+));
+EmptyCard.displayName = 'EmptyCard';
+
+const SkeletonCard = memo(() => (
+  <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border border-white/5 bg-[#1a1033]/30 h-[96px] animate-pulse">
+     <div className="flex items-center gap-4 w-full">
+        <div className="w-8 h-8 rounded-full bg-white/10"></div>
+        <div className="w-12 h-12 rounded-full bg-white/10"></div>
+        <div className="flex-1 space-y-2">
+           <div className="h-4 w-3/4 bg-white/10 rounded"></div>
+           <div className="h-3 w-1/2 bg-white/10 rounded"></div>
+        </div>
+     </div>
+  </div>
+));
+SkeletonCard.displayName = 'SkeletonCard';
+
+// 🛠️ 修正: UserCardを外出し。Propsを受け取る形に変更
+interface UserCardProps {
+  profile: Profile;
+  index?: number;
+  isRanking?: boolean;
+  isSelected?: boolean;
+  isMe?: boolean;
+  isCooldown?: boolean;
+  onSelect: (id: string) => void;
+}
+
+const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isMe, isCooldown, onSelect }: UserCardProps) => {
+  const avatar = profile.avatar_url || "https://www.gravatar.com/avatar?d=mp";
+
+  return (
+    <div 
+      onClick={() => onSelect(profile.id)}
+      className={`
+        relative flex items-center justify-between p-3 mb-2 rounded-xl transition-all duration-300 border select-none backdrop-blur-md overflow-hidden group
+        ${isRanking ? 'h-[96px] mb-3 p-4 rounded-2xl' : 'h-[80px]'}
+        ${isMe ? 'bg-[#1a1033]/40 border-[#ffd700]/20 cursor-default' : 'cursor-pointer'}
+        ${!isMe && isCooldown ? 'opacity-50 grayscale cursor-not-allowed bg-[#0a0e1a]/80 border-white/5' : ''}
+        ${!isMe && !isCooldown && isSelected 
+          ? 'bg-gradient-to-r from-[#ff3366]/80 to-[#ffd700]/80 border-[#ffd700] shadow-[0_0_20px_rgba(255,51,102,0.5)] scale-[1.01]' 
+          : !isMe && !isCooldown 
+            ? 'bg-[#1a1033]/60 border-white/10 hover:border-[#ffd700]/50 hover:bg-[#1a1033]/80 hover:shadow-[0_0_15px_rgba(26,16,51,0.8)]' 
+            : ''
+        }
+      `}
+    >
+      {isSelected && <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#ffd700]/20 to-transparent opacity-50 animate-pulse"></div>}
+      <div className="flex items-center gap-3 overflow-hidden w-full relative z-10">
+        <div className="flex-shrink-0 w-6 text-center flex justify-center items-center">
+          {isRanking ? <RankBadge index={index} /> : (
+             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-[#ffd700] border-[#ffd700] shadow-[0_0_10px_#ffd700]' : 'border-white/20 group-hover:border-[#ffd700]/50'}`}>
+               {isSelected && <span className="text-[#1a1033] font-bold text-[10px]">✓</span>}
+             </div>
+          )}
+        </div>
+        
+        <div className="flex-shrink-0">
+           {/* eslint-disable-next-line @next/next/no-img-element */}
+           <img src={avatar} alt="icon" className={`${isRanking ? 'w-12 h-12' : 'w-10 h-10'} rounded-full border-2 border-[#e6e6fa]/20 object-cover shadow-lg`} />
+        </div>
+
+        <div className="flex-1 overflow-hidden">
+          <p className={`font-bold ${isRanking ? 'text-base' : 'text-sm'} truncate transition-colors ${isSelected ? 'text-[#1a1033]' : 'text-[#e6e6fa]'} ${isMe ? 'opacity-80' : ''}`}>
+            {profile.display_name} {isMe && <span className="text-[10px] font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(あなた)</span>}
+          </p>
+          <div className="flex items-center gap-2 mt-1">
+            {isRanking && index < 5 && (
+               <span className="text-[9px] text-[#ffd700] bg-[#ffd700]/10 px-1.5 py-0.5 rounded border border-[#ffd700]/20">TOP STAR</span>
+            )}
+            <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border ${isSelected ? 'bg-[#1a1033]/20 border-[#1a1033]/30' : 'bg-[#ffd700]/10 border-[#ffd700]/30'}`}>
+              <span className="text-[10px]">🍫</span>
+              <span className={`text-xs font-black ${isSelected ? 'text-[#1a1033]' : 'text-[#ffd700]'}`}>{profile.received_count}</span>
+            </div>
+            {isCooldown && !isMe && (
+              <span className="text-[9px] text-[#ff3366] font-mono tracking-wider flex items-center gap-1">
+                <span className="inline-block w-1.5 h-1.5 bg-[#ff3366] rounded-full animate-ping"></span>あと15分
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+UserCard.displayName = 'UserCard';
+
+// ==========================================
 // 🧱 メインコンポーネント
 // ==========================================
 export default function CosmicChocolatApp() {
@@ -204,12 +310,13 @@ export default function CosmicChocolatApp() {
 function GameContent({ session }: { session: any }) {
   const user = session?.user ?? null;
   const [rankingList, setRankingList] = useState<Profile[]>([]);
+  const [isRankingLoading, setIsRankingLoading] = useState(true);
   const [totalChocolates, setTotalChocolates] = useState<number>(0);
   
   const [myProfileName, setMyProfileName] = useState(''); 
   const [inputName, setInputName] = useState(''); 
   const [myAvatarUrl, setMyAvatarUrl] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false); 
 
   const [memberList, setMemberList] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
@@ -243,26 +350,33 @@ function GameContent({ session }: { session: any }) {
   }, []);
 
   const fetchRanking = useCallback(async () => {
+    setIsRankingLoading(true);
     const { data: sumData } = await supabase.from('chocolates').select('quantity');
     const total = sumData?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0;
     if (isMounted.current) setTotalChocolates(total);
-    const { data } = await supabase.from('galaxy_ranking').select('*');
+
+    const { data: rankingData } = await supabase.from('galaxy_ranking').select('*');
     
-    if (isMounted.current && data) {
-       const { data: profiles } = await supabase.from('profiles').select('id, avatar_url');
-       const merged = data.map(rank => ({
-         ...rank,
-         avatar_url: profiles?.find(p => p.id === rank.id)?.avatar_url
-       }));
-       setRankingList(merged);
+    if (isMounted.current && rankingData) {
+       const rankedIds = rankingData.map(r => r.id);
+       
+       if (rankedIds.length > 0) {
+         const { data: profiles } = await supabase.from('profiles').select('id, avatar_url').in('id', rankedIds);
+         const merged = rankingData.map(rank => ({
+           ...rank,
+           avatar_url: profiles?.find(p => p.id === rank.id)?.avatar_url
+         }));
+         setRankingList(merged);
+       } else {
+         setRankingList([]);
+       }
+       setIsRankingLoading(false);
     }
   }, []);
 
-  // 🚀 高速化: Promise.allで並列読み込み
   const fetchUserData = useCallback(async (skipNameUpdate = false) => {
     if (!user) return;
     
-    // 1. 自分のプロフィール取得・更新（ここは整合性のため直列）
     let name = user.user_metadata.full_name || 'クルー';
     let avatar = user.user_metadata.avatar_url || 'https://www.gravatar.com/avatar?d=mp';
 
@@ -285,7 +399,6 @@ function GameContent({ session }: { session: any }) {
         setMyAvatarUrl(avatar);
     }
 
-    // 2. 重いデータ取得処理を並列化（ここが高速化の肝！）
     const [profilesRes, historyRes, ranksRes] = await Promise.all([
       supabase.from('profiles').select('*').neq('id', user.id),
       supabase.from('chocolates').select('receiver_id, created_at, quantity').eq('sender_id', user.id),
@@ -296,7 +409,6 @@ function GameContent({ session }: { session: any }) {
     const myHistory = historyRes.data;
     const ranks = ranksRes.data;
 
-    // 3. データ整形（メモリ上での処理）
     const totalSent = myHistory?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0;
     if (isMounted.current) setMyTotalSent(totalSent);
     
@@ -338,22 +450,26 @@ function GameContent({ session }: { session: any }) {
   // ----------------------------------------
   // 🎮 アクション
   // ----------------------------------------
-  const isCooldown = (lastDateStr?: string) => {
+  const isCooldown = useCallback((lastDateStr?: string) => {
     if (!lastDateStr) return false;
     return (new Date().getTime() - new Date(lastDateStr).getTime()) / (1000 * 60) < 15;
-  };
-  const handleToggleSelect = (id: string) => {
-    const newSet = new Set(selectedUsers);
-    newSet.has(id) ? newSet.delete(id) : newSet.add(id);
-    setSelectedUsers(newSet);
-  };
-  const handleClickUser = (targetId: string) => {
+  }, []);
+
+  const handleClickUser = useCallback((targetId: string) => {
     if (!user) return alert("ログインしてください");
     if (targetId === user.id) return alert("自分には贈れません");
+    // ここで memberList を参照するとクロージャの問題が出るため、最新のmemberListを使うか、
+    // あるいはクリック時にIDだけ渡して、描画側で制御する。
+    // 今回は memberList が更新されるたびにこの関数も再生成されるのでOK。
     const detailInfo = memberList.find(m => m.id === targetId);
     if (detailInfo && isCooldown(detailInfo.last_received_at)) { return alert("15分休憩しましょう！"); }
-    handleToggleSelect(targetId);
-  };
+    
+    setSelectedUsers(prev => {
+      const newSet = new Set(prev);
+      newSet.has(targetId) ? newSet.delete(targetId) : newSet.add(targetId);
+      return newSet;
+    });
+  }, [user, memberList, isCooldown]);
 
   const handleSend = async () => {
     if (!user || selectedUsers.size === 0) return;
@@ -405,89 +521,8 @@ function GameContent({ session }: { session: any }) {
   // ----------------------------------------
   const filteredMembers = memberList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
 
-  const RankBadge = ({ index }: { index: number }) => {
-    const styles = [
-      "text-transparent bg-clip-text bg-gradient-to-b from-[#ffd700] to-[#e6b800] drop-shadow-[0_0_8px_rgba(255,215,0,0.8)] scale-125", 
-      "text-transparent bg-clip-text bg-gradient-to-b from-[#e6e6fa] to-[#c0c0c0] drop-shadow-[0_0_5px_rgba(230,230,250,0.6)] scale-110", 
-      "text-transparent bg-clip-text bg-gradient-to-b from-[#ffab91] to-[#d84315] drop-shadow-[0_0_5px_rgba(255,171,145,0.5)] scale-105"
-    ];
-    return <span className={`font-black text-xl ${styles[index] || "text-[#8d6e63] opacity-70"}`}>{index + 1}</span>;
-  };
-
-  const EmptyCard = ({ index }: { index: number }) => (
-    <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border-2 border-dashed border-[#e6e6fa]/10 bg-[#1a1033]/20 select-none h-[96px]">
-       <div className="flex items-center gap-4 w-full opacity-30">
-          <div className="w-8 text-center font-black text-xl text-[#8d6e63]">{index + 1}</div>
-          <div className="flex-1"><p className="font-bold text-base text-[#e6e6fa] tracking-widest text-xs">データなし</p></div>
-       </div>
-    </div>
-  );
-
-  const UserCard = ({ profile, index = -1, isRanking = false }: { profile: Profile, index?: number, isRanking?: boolean }) => {
-    const isSelected = selectedUsers.has(profile.id);
-    const isMe = user && profile.id === user.id;
-    const detail = memberList.find(m => m.id === profile.id); 
-    const cooldown = isCooldown(detail?.last_received_at);
-    const avatar = profile.avatar_url || "https://www.gravatar.com/avatar?d=mp";
-
-    return (
-      <div 
-        onClick={() => handleClickUser(profile.id)}
-        className={`
-          relative flex items-center justify-between p-3 mb-2 rounded-xl transition-all duration-500 border select-none backdrop-blur-md overflow-hidden group
-          ${isRanking ? 'h-[96px] mb-3 p-4 rounded-2xl' : 'h-[80px]'}
-          ${isMe ? 'bg-[#1a1033]/40 border-[#ffd700]/20 cursor-default' : 'cursor-pointer'}
-          ${!isMe && cooldown ? 'opacity-50 grayscale cursor-not-allowed bg-[#0a0e1a]/80 border-white/5' : ''}
-          ${!isMe && !cooldown && isSelected 
-            ? 'bg-gradient-to-r from-[#ff3366]/80 to-[#ffd700]/80 border-[#ffd700] shadow-[0_0_20px_rgba(255,51,102,0.5)] scale-[1.02]' 
-            : !isMe && !cooldown 
-              ? 'bg-[#1a1033]/60 border-white/10 hover:border-[#ffd700]/50 hover:bg-[#1a1033]/80 hover:shadow-[0_0_15px_rgba(26,16,51,0.8)]' 
-              : ''
-          }
-        `}
-      >
-        {isSelected && <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#ffd700]/20 to-transparent opacity-50 animate-pulse"></div>}
-        <div className="flex items-center gap-3 overflow-hidden w-full relative z-10">
-          <div className="flex-shrink-0 w-6 text-center flex justify-center items-center">
-            {isRanking ? <RankBadge index={index} /> : (
-               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-[#ffd700] border-[#ffd700] shadow-[0_0_10px_#ffd700]' : 'border-white/20 group-hover:border-[#ffd700]/50'}`}>
-                 {isSelected && <span className="text-[#1a1033] font-bold text-[10px]">✓</span>}
-               </div>
-            )}
-          </div>
-          
-          <div className="flex-shrink-0">
-             {/* eslint-disable-next-line @next/next/no-img-element */}
-             <img src={avatar} alt="icon" className={`${isRanking ? 'w-12 h-12' : 'w-10 h-10'} rounded-full border-2 border-[#e6e6fa]/20 object-cover shadow-lg`} />
-          </div>
-
-          <div className="flex-1 overflow-hidden">
-            <p className={`font-bold ${isRanking ? 'text-base' : 'text-sm'} truncate transition-colors ${isSelected ? 'text-[#1a1033]' : 'text-[#e6e6fa]'} ${isMe ? 'opacity-80' : ''}`}>
-              {profile.display_name} {isMe && <span className="text-[10px] font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(あなた)</span>}
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              {isRanking && index < 5 && (
-                 <span className="text-[9px] text-[#ffd700] bg-[#ffd700]/10 px-1.5 py-0.5 rounded border border-[#ffd700]/20">TOP STAR</span>
-              )}
-              <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border ${isSelected ? 'bg-[#1a1033]/20 border-[#1a1033]/30' : 'bg-[#ffd700]/10 border-[#ffd700]/30'}`}>
-                <span className="text-[10px]">🍫</span>
-                <span className={`text-xs font-black ${isSelected ? 'text-[#1a1033]' : 'text-[#ffd700]'}`}>{profile.received_count}</span>
-              </div>
-              {cooldown && !isMe && (
-                <span className="text-[9px] text-[#ff3366] font-mono tracking-wider flex items-center gap-1">
-                  <span className="inline-block w-1.5 h-1.5 bg-[#ff3366] rounded-full animate-ping"></span>あと15分
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
-    // 🛠️ 修正: メインコンテンツの背景を透明にし、背面のStarBackgroundが見えるようにする
-    <main className="min-h-screen text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
+    <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
       <RocketLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
 
@@ -605,7 +640,16 @@ function GameContent({ session }: { session: any }) {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 pb-4">
               {filteredMembers.length === 0 ? <p className="col-span-full text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">クルーメイトが見つかりません</p> : 
-                filteredMembers.map((m) => <UserCard key={m.id} profile={m} />)
+                filteredMembers.map((m) => (
+                  <UserCard 
+                    key={m.id} 
+                    profile={m} 
+                    isSelected={selectedUsers.has(m.id)} 
+                    isMe={user.id === m.id}
+                    isCooldown={isCooldown(m.last_received_at)}
+                    onSelect={handleClickUser}
+                  />
+                ))
               }
             </div>
 
@@ -634,19 +678,27 @@ function GameContent({ session }: { session: any }) {
               <div className="flex flex-col md:flex-row gap-6 items-start">
                  <div className="w-full md:w-1/2 flex flex-col gap-3">
                     <div className="hidden md:block text-center text-[#ffd700] text-xs tracking-widest mb-2 opacity-70">{'/// TOP STARS ///'}</div>
-                    {Array.from({ length: 5 }).map((_, i) => {
-                       const ranker = rankingList[i];
-                       return ranker ? <UserCard key={ranker.id} profile={ranker} index={i} isRanking={true} /> : <EmptyCard key={`empty-${i}`} index={i} />;
-                    })}
+                    {isRankingLoading ? (
+                      Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={`skel-top-${i}`} />)
+                    ) : (
+                      Array.from({ length: 5 }).map((_, i) => {
+                         const ranker = rankingList[i];
+                         return ranker ? <UserCard key={ranker.id} profile={ranker} index={i} isRanking={true} onSelect={() => {}} /> : <EmptyCard key={`empty-${i}`} index={i} />;
+                      })
+                    )}
                  </div>
                  
                  <div className="w-full md:w-1/2 flex flex-col gap-3">
                     <div className="hidden md:block text-center text-[#e6e6fa] text-xs tracking-widest mb-2 opacity-50">{'/// RISING STARS ///'}</div>
-                    {Array.from({ length: 5 }).map((_, i) => {
-                       const rankIndex = i + 5;
-                       const ranker = rankingList[rankIndex];
-                       return ranker ? <UserCard key={ranker.id} profile={ranker} index={rankIndex} isRanking={true} /> : <EmptyCard key={`empty-${rankIndex}`} index={rankIndex} />;
-                    })}
+                    {isRankingLoading ? (
+                      Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={`skel-rise-${i}`} />)
+                    ) : (
+                      Array.from({ length: 5 }).map((_, i) => {
+                         const rankIndex = i + 5;
+                         const ranker = rankingList[rankIndex];
+                         return ranker ? <UserCard key={ranker.id} profile={ranker} index={rankIndex} isRanking={true} onSelect={() => {}} /> : <EmptyCard key={`empty-${rankIndex}`} index={rankIndex} />;
+                      })
+                    )}
                  </div>
               </div>
             </div>
