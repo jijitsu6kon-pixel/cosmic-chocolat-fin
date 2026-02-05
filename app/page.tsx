@@ -107,7 +107,7 @@ const RocketLayer = memo(({ isActive, onComplete }: { isActive: boolean, onCompl
 RocketLayer.displayName = 'RocketLayer';
 
 // ==========================================
-// 📡 アクティビティログ
+// 📡 アクティビティログ パネル
 // ==========================================
 const ActivityPanel = memo(({ isOpen, onClose, logs }: { isOpen: boolean, onClose: () => void, logs: ActivityLog[] }) => {
   return (
@@ -142,6 +142,42 @@ const ActivityPanel = memo(({ isOpen, onClose, logs }: { isOpen: boolean, onClos
   );
 });
 ActivityPanel.displayName = 'ActivityPanel';
+
+// ==========================================
+// 👥 参加者リスト パネル (🆕 追加)
+// ==========================================
+const MemberPanel = memo(({ isOpen, onClose, members, getRankTitle }: { isOpen: boolean, onClose: () => void, members: CrewStats[], getRankTitle: (count: number) => string }) => {
+  return (
+    <>
+      <div className={`fixed inset-0 bg-black/50 z-[80] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose}></div>
+      <div className={`fixed top-0 right-0 h-full w-80 bg-[#1a1033]/95 backdrop-blur-xl border-l border-[#ffd700]/30 z-[90] transform transition-transform duration-300 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="p-4 border-b border-[#ffd700]/20 flex justify-between items-center">
+          <h3 className="text-[#ffd700] font-bold tracking-widest flex items-center gap-2"><span className="text-xl">👥</span> CREW LIST</h3>
+          <button onClick={onClose} className="text-[#e6e6fa] hover:text-[#ff3366] text-xl">×</button>
+        </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+          <p className="text-right text-[10px] text-[#e6e6fa]/50 mb-2">Total Crew: {members.length}名</p>
+          {members.length === 0 ? <p className="text-center text-[#e6e6fa]/30 text-xs">データなし</p> : members.map((m) => (
+            <div key={m.id} className="flex items-center gap-3 p-3 rounded-lg bg-[#0a0e1a]/40 border border-[#e6e6fa]/10 select-none">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={m.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} alt="icon" className="w-10 h-10 rounded-full border border-[#ffd700]/20" />
+              <div className="flex-1 overflow-hidden">
+                <p className="text-[#e6e6fa] font-bold text-sm truncate">{m.display_name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] text-[#ffd700] bg-[#ffd700]/10 px-1.5 py-0.5 rounded border border-[#ffd700]/20">
+                    {getRankTitle(m.sent_count)}
+                  </span>
+                  <span className="text-[10px] text-[#e6e6fa]/50">💝 {m.sent_count}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+});
+MemberPanel.displayName = 'MemberPanel';
 
 // ==========================================
 // 🎨 UIパーツ
@@ -194,7 +230,6 @@ interface UserCardProps {
 const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isMe, isCooldown, rankTitle, onSelect }: UserCardProps) => {
   const avatar = profile.avatar_url || "https://www.gravatar.com/avatar?d=mp";
 
-  // 🆕 残り時間を計算するロジック
   const getRemainingMinutes = () => {
     if (!profile.last_received_at) return 0;
     const lastTime = new Date(profile.last_received_at).getTime();
@@ -202,7 +237,6 @@ const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isM
     const diff = now - lastTime;
     const fifteenMins = 15 * 60 * 1000;
     const remaining = fifteenMins - diff;
-    // 分単位で切り上げ（例: 14分01秒なら15分、0秒以下なら0）
     return Math.max(0, Math.ceil(remaining / 60000));
   };
 
@@ -260,7 +294,6 @@ const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isM
             {isCooldown && !isMe && (
               <span className="text-[9px] text-[#ff3366] font-mono tracking-wider flex items-center gap-1">
                 <span className="inline-block w-1.5 h-1.5 bg-[#ff3366] rounded-full animate-ping"></span>
-                {/* 🆕 分数表示に変更 */}
                 あと{remainingMinutes}分
               </span>
             )}
@@ -335,6 +368,9 @@ function GameContent({ session }: { session: any }) {
   
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isLogOpen, setIsLogOpen] = useState(false);
+  
+  // 🆕 参加者リスト開閉状態
+  const [isMemberOpen, setIsMemberOpen] = useState(false);
 
   // ----------------------------------------
   // 🔄 データ取得 (イベント駆動型)
@@ -352,6 +388,13 @@ function GameContent({ session }: { session: any }) {
     const { data } = await supabase.from('activity_logs').select('*');
     if (isMounted.current && data) setActivityLogs(data);
   }, []);
+
+  const getRankTitle = useCallback((sentCount: number) => {
+    if (!appConfig.rank_titles) return '見習いクルー';
+    const titles: RankTitle[] = appConfig.rank_titles;
+    const currentTitle = titles.sort((a, b) => b.count - a.count).find(t => sentCount >= t.count);
+    return currentTitle ? currentTitle.title : '見習いクルー';
+  }, [appConfig]);
 
   const fetchData = useCallback(async (isBackground = false) => {
     if (!user) return;
@@ -389,8 +432,8 @@ function GameContent({ session }: { session: any }) {
     const ranking = allStats.slice(0, 10);
     const total = allStats.reduce((acc: number, curr: any) => acc + (curr.received_count || 0), 0);
 
-    const { data: mySent } = await supabase.from('chocolates').select('quantity').eq('sender_id', user.id);
-    const totalSent = mySent?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0;
+    const myStats = allStats.find((p: any) => p.id === user.id);
+    const totalSent = myStats?.sent_count || 0;
 
     if (isMounted.current) {
       setMemberList(members);
@@ -403,13 +446,9 @@ function GameContent({ session }: { session: any }) {
         setIsMemberLoading(false);
       }
 
-      if (appConfig.rank_titles) {
-        const titles: RankTitle[] = appConfig.rank_titles;
-        const currentTitle = titles.sort((a, b) => b.count - a.count).find(t => totalSent >= t.count);
-        if (currentTitle) setMyRankTitle(currentTitle.title);
-      }
+      setMyRankTitle(getRankTitle(totalSent));
     }
-  }, [user, appConfig]);
+  }, [user, appConfig, getRankTitle]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -489,25 +528,38 @@ function GameContent({ session }: { session: any }) {
     return memberList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
   }, [memberList, searchText]);
 
-  const getRankTitle = useCallback((sentCount: number) => {
-    if (!appConfig.rank_titles) return '見習いクルー';
-    const titles: RankTitle[] = appConfig.rank_titles;
-    const currentTitle = titles.sort((a, b) => b.count - a.count).find(t => sentCount >= t.count);
-    return currentTitle ? currentTitle.title : '見習いクルー';
-  }, [appConfig]);
-
   return (
     <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
       <RocketLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
+      
+      {/* 🆕 参加者リストパネル */}
+      <MemberPanel 
+        isOpen={isMemberOpen} 
+        onClose={() => setIsMemberOpen(false)} 
+        members={memberList} // 検索フィルタをかけない全員のリスト
+        getRankTitle={getRankTitle}
+      />
 
-      <button 
-        onClick={() => setIsLogOpen(true)}
-        className="fixed top-24 right-0 z-50 bg-[#1a1033]/80 border-l border-t border-b border-[#ffd700]/30 text-[#ffd700] p-3 rounded-l-xl backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:bg-[#1a1033] hover:pl-5 transition-all duration-300 group"
-      >
-        <span className="text-xl group-hover:animate-ping">📡</span>
-        <span className="hidden group-hover:inline ml-2 text-xs font-bold tracking-widest">LOG</span>
-      </button>
+      <div className="fixed top-24 right-0 z-50 flex flex-col items-end gap-2">
+        {/* LOG BUTTON */}
+        <button 
+          onClick={() => setIsLogOpen(true)}
+          className="bg-[#1a1033]/80 border-l border-t border-b border-[#ffd700]/30 text-[#ffd700] p-3 rounded-l-xl backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:bg-[#1a1033] hover:pl-5 transition-all duration-300 group"
+        >
+          <span className="text-xl group-hover:animate-ping">📡</span>
+          <span className="hidden group-hover:inline ml-2 text-xs font-bold tracking-widest">LOG</span>
+        </button>
+
+        {/* 🆕 CREW LIST BUTTON */}
+        <button 
+          onClick={() => setIsMemberOpen(true)}
+          className="bg-[#1a1033]/80 border-l border-t border-b border-[#ffd700]/30 text-[#e6e6fa] p-3 rounded-l-xl backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:bg-[#1a1033] hover:pl-5 transition-all duration-300 group"
+        >
+          <span className="text-xl group-hover:animate-bounce">👥</span>
+          <span className="hidden group-hover:inline ml-2 text-xs font-bold tracking-widest">CREW</span>
+        </button>
+      </div>
 
       <StarBackground />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1a1033]/30 via-[#0a0e1a]/80 to-black z-0"></div>
