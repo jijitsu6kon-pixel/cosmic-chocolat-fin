@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { useEffect, useState, useRef, useCallback, memo, useMemo } from 'react';
-import { useRouter } from 'next/navigation'; // 🆕 ルーターをインポート
+import { useRouter } from 'next/navigation';
 
 // ==========================================
 // ⚙️ 設定
@@ -343,7 +343,7 @@ export default function CosmicChocolatApp() {
 // 🎮 ゲーム本体コンポーネント
 // ==========================================
 function GameContent({ session }: { session: any }) {
-  const router = useRouter(); // 🆕 ルーターの使用
+  const router = useRouter(); 
   const user = session?.user ?? null;
   
   const [rankingList, setRankingList] = useState<CrewStats[]>([]);
@@ -413,7 +413,7 @@ function GameContent({ session }: { session: any }) {
        if (insertError) {
          console.error("Profile creation failed (User deleted?):", insertError);
          await supabase.auth.signOut();
-         router.refresh(); // 🆕 安全なリロード
+         router.refresh();
          return;
        }
     } else if (!me.avatar_url && currentAvatar) {
@@ -474,7 +474,7 @@ function GameContent({ session }: { session: any }) {
       if (error) {
         console.warn("Survival check failed. Forcing logout.");
         await supabase.auth.signOut();
-        router.refresh(); // 🆕 クラッシュ回避のため router.refresh() を使用
+        router.refresh(); 
       }
     }, 60000); // 60秒
     return () => clearInterval(survivalCheck);
@@ -537,10 +537,9 @@ function GameContent({ session }: { session: any }) {
   };
   const signIn = () => supabase.auth.signInWithOAuth({ provider: 'discord', options: { queryParams: { prompt: 'consent' } } });
   
-  // 🆕 修正されたログアウト関数
   const signOut = async () => { 
     await supabase.auth.signOut();
-    router.refresh(); // 画面を更新してログイン画面へ
+    router.refresh();
   };
 
   const getNameSize = (name: string) => {
@@ -695,7 +694,8 @@ function GameContent({ session }: { session: any }) {
                     key={m.id} 
                     profile={m} 
                     isSelected={selectedUsers.has(m.id)} 
-                    isMe={user.id === m.id}
+                    // 🛠️ 修正: user.id -> user?.id に変更してクラッシュを防止
+                    isMe={user?.id === m.id}
                     isCooldown={isCooldown(m.last_received_at)}
                     rankTitle={getRankTitle(m.sent_count)}
                     onSelect={handleClickUser}
@@ -741,7 +741,8 @@ function GameContent({ session }: { session: any }) {
                              index={i} 
                              isRanking={true} 
                              isSelected={selectedUsers.has(ranker.id)} 
-                             isMe={user.id === ranker.id}
+                             // 🛠️ 修正: user.id -> user?.id に変更してクラッシュを防止
+                             isMe={user?.id === ranker.id}
                              isCooldown={isCooldown(ranker.last_received_at)}
                              rankTitle={getRankTitle(ranker.sent_count)}
                              onSelect={handleClickUser}
@@ -766,7 +767,8 @@ function GameContent({ session }: { session: any }) {
                              index={rankIndex} 
                              isRanking={true} 
                              isSelected={selectedUsers.has(ranker.id)}
-                             isMe={user.id === ranker.id}
+                             // 🛠️ 修正: user.id -> user?.id に変更してクラッシュを防止
+                             isMe={user?.id === ranker.id}
                              isCooldown={isCooldown(ranker.last_received_at)}
                              rankTitle={getRankTitle(ranker.sent_count)}
                              onSelect={handleClickUser}
