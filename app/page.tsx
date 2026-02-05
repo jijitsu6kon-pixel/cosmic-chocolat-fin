@@ -18,6 +18,7 @@ type CrewStats = {
   display_name: string;
   avatar_url?: string;
   received_count: number;
+  sent_count: number;
   last_received_at?: string;
 };
 
@@ -186,11 +187,26 @@ interface UserCardProps {
   isSelected?: boolean;
   isMe?: boolean;
   isCooldown?: boolean;
+  rankTitle?: string;
   onSelect: (id: string) => void;
 }
 
-const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isMe, isCooldown, onSelect }: UserCardProps) => {
+const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isMe, isCooldown, rankTitle, onSelect }: UserCardProps) => {
   const avatar = profile.avatar_url || "https://www.gravatar.com/avatar?d=mp";
+
+  // 🆕 残り時間を計算するロジック
+  const getRemainingMinutes = () => {
+    if (!profile.last_received_at) return 0;
+    const lastTime = new Date(profile.last_received_at).getTime();
+    const now = new Date().getTime();
+    const diff = now - lastTime;
+    const fifteenMins = 15 * 60 * 1000;
+    const remaining = fifteenMins - diff;
+    // 分単位で切り上げ（例: 14分01秒なら15分、0秒以下なら0）
+    return Math.max(0, Math.ceil(remaining / 60000));
+  };
+
+  const remainingMinutes = getRemainingMinutes();
 
   return (
     <div 
@@ -224,9 +240,15 @@ const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isM
         </div>
 
         <div className="flex-1 overflow-hidden">
-          <p className={`font-bold ${isRanking ? 'text-base' : 'text-sm'} truncate transition-colors ${isSelected ? 'text-[#1a1033]' : 'text-[#e6e6fa]'} ${isMe ? 'opacity-80' : ''}`}>
-            {profile.display_name} {isMe && <span className="text-[10px] font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(あなた)</span>}
-          </p>
+          <div className="flex flex-col">
+            <p className={`font-bold ${isRanking ? 'text-base' : 'text-sm'} truncate transition-colors ${isSelected ? 'text-[#1a1033]' : 'text-[#e6e6fa]'} ${isMe ? 'opacity-80' : ''}`}>
+              {profile.display_name} {isMe && <span className="text-[10px] font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(あなた)</span>}
+            </p>
+            {rankTitle && (
+              <span className={`text-[9px] font-bold mt-0.5 truncate ${isSelected ? 'text-[#1a1033]/70' : 'text-[#ffd700]/70'}`}>{rankTitle}</span>
+            )}
+          </div>
+
           <div className="flex items-center gap-2 mt-1">
             {isRanking && index < 5 && (
                <span className="text-[9px] text-[#ffd700] bg-[#ffd700]/10 px-1.5 py-0.5 rounded border border-[#ffd700]/20">TOP STAR</span>
@@ -237,7 +259,9 @@ const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isM
             </div>
             {isCooldown && !isMe && (
               <span className="text-[9px] text-[#ff3366] font-mono tracking-wider flex items-center gap-1">
-                <span className="inline-block w-1.5 h-1.5 bg-[#ff3366] rounded-full animate-ping"></span>あと15分
+                <span className="inline-block w-1.5 h-1.5 bg-[#ff3366] rounded-full animate-ping"></span>
+                {/* 🆕 分数表示に変更 */}
+                あと{remainingMinutes}分
               </span>
             )}
           </div>
@@ -329,17 +353,14 @@ function GameContent({ session }: { session: any }) {
     if (isMounted.current && data) setActivityLogs(data);
   }, []);
 
-  // 🚀 isBackground = true ならローディングを出さない（サイレント更新）
   const fetchData = useCallback(async (isBackground = false) => {
     if (!user) return;
     
-    // 初回ロード時のみスケルトンを出す
     if (!isBackground) {
       setIsMemberLoading(true);
       setIsRankingLoading(true);
     }
 
-    // 1. 自分情報
     const { data: me } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
     let currentName = me?.display_name || user.user_metadata.full_name || 'クルー';
     let currentAvatar = me?.avatar_url || user.user_metadata.avatar_url;
@@ -350,14 +371,12 @@ function GameContent({ session }: { session: any }) {
        await supabase.from('profiles').update({ avatar_url: currentAvatar }).eq('id', user.id);
     }
 
-    // 初回のみ名前をセット（編集中に書き換わらないように）
     if (isMounted.current && !isBackground) {
       setMyProfileName(currentName);
       setInputName(currentName);
       setMyAvatarUrl(currentAvatar || 'https://www.gravatar.com/avatar?d=mp');
     }
 
-    // 2. ビューから一括取得
     const { data: allStats, error } = await supabase
       .from('view_crew_stats')
       .select('*')
@@ -379,7 +398,6 @@ function GameContent({ session }: { session: any }) {
       setTotalChocolates(total);
       setMyTotalSent(totalSent);
       
-      // データ取得完了後にローディングを消す
       if (!isBackground) {
         setIsRankingLoading(false);
         setIsMemberLoading(false);
@@ -393,14 +411,12 @@ function GameContent({ session }: { session: any }) {
     }
   }, [user, appConfig]);
 
-  // 🛠️ 修正: 初回マウント時のみ実行（空の依存配列で無限ループを阻止）
-  // ユーザーが変わった時だけ再実行
   useEffect(() => {
     isMounted.current = true;
     if (user) {
       fetchConfig(); 
       fetchLogs(); 
-      fetchData(false); // 初回なのでスケルトンあり
+      fetchData(false);
     }
     return () => { isMounted.current = false; };
   }, [user]); 
@@ -448,7 +464,6 @@ function GameContent({ session }: { session: any }) {
     }));
     await supabase.from('chocolates').insert(updates);
     
-    // 🛠️ 送信後はバックグラウンド更新（スケルトンなし）
     fetchData(true);
   };
 
@@ -458,8 +473,6 @@ function GameContent({ session }: { session: any }) {
     await supabase.from('profiles').update({ display_name: inputName }).eq('id', user.id);
     setMyProfileName(inputName);
     setIsEditing(false);
-    
-    // 名前変更後もバックグラウンド更新
     fetchData(true);
     setTimeout(() => setIsActionLoading(false), 500);
   };
@@ -472,10 +485,16 @@ function GameContent({ session }: { session: any }) {
     return 'text-xl';
   };
 
-  // メモ化されたリスト
   const filteredMembers = useMemo(() => {
     return memberList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
   }, [memberList, searchText]);
+
+  const getRankTitle = useCallback((sentCount: number) => {
+    if (!appConfig.rank_titles) return '見習いクルー';
+    const titles: RankTitle[] = appConfig.rank_titles;
+    const currentTitle = titles.sort((a, b) => b.count - a.count).find(t => sentCount >= t.count);
+    return currentTitle ? currentTitle.title : '見習いクルー';
+  }, [appConfig]);
 
   return (
     <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
@@ -604,6 +623,7 @@ function GameContent({ session }: { session: any }) {
                     isSelected={selectedUsers.has(m.id)} 
                     isMe={user.id === m.id}
                     isCooldown={isCooldown(m.last_received_at)}
+                    rankTitle={getRankTitle(m.sent_count)}
                     onSelect={handleClickUser}
                   />
                 ))
@@ -640,7 +660,19 @@ function GameContent({ session }: { session: any }) {
                     ) : (
                       Array.from({ length: 5 }).map((_, i) => {
                          const ranker = rankingList[i];
-                         return ranker ? <UserCard key={ranker.id} profile={ranker} index={i} isRanking={true} onSelect={() => {}} /> : <EmptyCard key={`empty-${i}`} index={i} />;
+                         return ranker ? (
+                           <UserCard 
+                             key={ranker.id} 
+                             profile={ranker} 
+                             index={i} 
+                             isRanking={true} 
+                             isSelected={selectedUsers.has(ranker.id)} 
+                             isMe={user.id === ranker.id}
+                             isCooldown={isCooldown(ranker.last_received_at)}
+                             rankTitle={getRankTitle(ranker.sent_count)}
+                             onSelect={handleClickUser}
+                           />
+                         ) : <EmptyCard key={`empty-${i}`} index={i} />;
                       })
                     )}
                  </div>
@@ -653,7 +685,19 @@ function GameContent({ session }: { session: any }) {
                       Array.from({ length: 5 }).map((_, i) => {
                          const rankIndex = i + 5;
                          const ranker = rankingList[rankIndex];
-                         return ranker ? <UserCard key={ranker.id} profile={ranker} index={rankIndex} isRanking={true} onSelect={() => {}} /> : <EmptyCard key={`empty-${rankIndex}`} index={rankIndex} />;
+                         return ranker ? (
+                           <UserCard 
+                             key={ranker.id} 
+                             profile={ranker} 
+                             index={rankIndex} 
+                             isRanking={true} 
+                             isSelected={selectedUsers.has(ranker.id)}
+                             isMe={user.id === ranker.id}
+                             isCooldown={isCooldown(ranker.last_received_at)}
+                             rankTitle={getRankTitle(ranker.sent_count)}
+                             onSelect={handleClickUser}
+                           />
+                         ) : <EmptyCard key={`empty-${rankIndex}`} index={rankIndex} />;
                       })
                     )}
                  </div>
