@@ -37,7 +37,7 @@ type ActivityLog = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント (デザイン復旧版)
+// 🌠 星空生成コンポーネント
 // ==========================================
 const StarBackground = () => {
   const [starsSmall, setStarsSmall] = useState('');
@@ -67,8 +67,7 @@ const StarBackground = () => {
   }, []);
 
   return (
-    // 🛠️ 修正: z-indexを最背面に固定し、クリックを阻害しないようにする
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1] bg-[#050510]">
       <style jsx>{`
         @keyframes animStar { from { transform: translateY(0px); } to { transform: translateY(-2000px); } }
         @keyframes shooting {
@@ -181,7 +180,6 @@ export default function CosmicChocolatApp() {
 
   if (isAuthChecking) {
     return (
-      // 🛠️ 修正: 背景色をしっかり指定し、白浮きを防止
       <div className="min-h-screen bg-[#050510] flex items-center justify-center overflow-hidden relative">
         <StarBackground />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a1033]/40 via-[#0a0e1a]/60 to-black/80 z-0"></div>
@@ -206,6 +204,7 @@ function GameContent({ session }: { session: any }) {
   
   const [myProfileName, setMyProfileName] = useState(''); 
   const [inputName, setInputName] = useState(''); 
+  const [myAvatarUrl, setMyAvatarUrl] = useState(''); // 🆕 自分のアイコン用
 
   const [memberList, setMemberList] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
@@ -254,22 +253,28 @@ function GameContent({ session }: { session: any }) {
     }
   }, []);
 
-  const fetchUserData = useCallback(async () => {
+  const fetchUserData = useCallback(async (skipNameUpdate = false) => {
     if (!user) return;
     let name = user.user_metadata.full_name || 'クルー';
-    let avatar = user.user_metadata.avatar_url || '';
+    let avatar = user.user_metadata.avatar_url || 'https://www.gravatar.com/avatar?d=mp';
 
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
     if (profile) { 
       name = profile.display_name; 
-      if (profile.avatar_url !== avatar) {
-         await supabase.from('profiles').update({ avatar_url: avatar }).eq('id', user.id);
+      // DBにアバターがあればそれを使う
+      if (profile.avatar_url) avatar = profile.avatar_url;
+      else if (user.user_metadata.avatar_url) {
+         // なければ更新
+         await supabase.from('profiles').update({ avatar_url: user.user_metadata.avatar_url }).eq('id', user.id);
       }
     } else { 
       await supabase.from('profiles').insert({ id: user.id, display_name: name, avatar_url: avatar }); 
     }
     
-    if (isMounted.current) setMyProfileName(name);
+    if (isMounted.current) {
+        if (!skipNameUpdate) setMyProfileName(name);
+        setMyAvatarUrl(avatar);
+    }
 
     const { data: profiles } = await supabase.from('profiles').select('*').neq('id', user.id);
     const { data: myHistory } = await supabase.from('chocolates').select('receiver_id, created_at, quantity').eq('sender_id', user.id);
@@ -304,14 +309,13 @@ function GameContent({ session }: { session: any }) {
     }
   }, [user, appConfig]); 
 
-  // 🛠️ 修正: リアルタイム監視(channel)を完全削除。初回ロードのみ行う。
+  // 定期更新なし。初回ロードのみ
   useEffect(() => {
     isMounted.current = true;
     fetchConfig(); 
     fetchRanking(); 
     fetchLogs(); 
     if (user) fetchUserData();
-    
     return () => { isMounted.current = false; };
   }, [user, fetchConfig, fetchLogs, fetchRanking, fetchUserData]);
 
@@ -359,9 +363,9 @@ function GameContent({ session }: { session: any }) {
     }));
     await supabase.from('chocolates').insert(updates);
     
-    // 🛠️ 修正: 送信時のみデータを再取得する（手動更新）
+    // 送信時のみ手動更新
     fetchRanking(); 
-    fetchUserData();
+    fetchUserData(true);
   };
 
   const handleUpdateName = async () => {
@@ -390,7 +394,7 @@ function GameContent({ session }: { session: any }) {
   };
 
   const EmptyCard = ({ index }: { index: number }) => (
-    <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border-2 border-dashed border-[#e6e6fa]/10 bg-[#1a1033]/20 select-none h-[104px]">
+    <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border-2 border-dashed border-[#e6e6fa]/10 bg-[#1a1033]/20 select-none h-[96px]">
        <div className="flex items-center gap-4 w-full opacity-30">
           <div className="w-8 text-center font-black text-xl text-[#8d6e63]">{index + 1}</div>
           <div className="flex-1"><p className="font-bold text-base text-[#e6e6fa] tracking-widest text-xs">データなし</p></div>
@@ -398,6 +402,7 @@ function GameContent({ session }: { session: any }) {
     </div>
   );
 
+  // 参加者カード (3等分サイズに調整)
   const UserCard = ({ profile, index = -1, isRanking = false }: { profile: Profile, index?: number, isRanking?: boolean }) => {
     const isSelected = selectedUsers.has(profile.id);
     const isMe = user && profile.id === user.id;
@@ -409,7 +414,8 @@ function GameContent({ session }: { session: any }) {
       <div 
         onClick={() => handleClickUser(profile.id)}
         className={`
-          relative flex items-center justify-between p-4 mb-3 rounded-2xl transition-all duration-500 border select-none backdrop-blur-md overflow-hidden group h-[104px]
+          relative flex items-center justify-between p-3 mb-2 rounded-xl transition-all duration-500 border select-none backdrop-blur-md overflow-hidden group
+          ${isRanking ? 'h-[96px] mb-3 p-4 rounded-2xl' : 'h-[80px]'}
           ${isMe ? 'bg-[#1a1033]/40 border-[#ffd700]/20 cursor-default' : 'cursor-pointer'}
           ${!isMe && cooldown ? 'opacity-50 grayscale cursor-not-allowed bg-[#0a0e1a]/80 border-white/5' : ''}
           ${!isMe && !cooldown && isSelected 
@@ -421,39 +427,35 @@ function GameContent({ session }: { session: any }) {
         `}
       >
         {isSelected && <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#ffd700]/20 to-transparent opacity-50 animate-pulse"></div>}
-        <div className="flex items-center gap-4 overflow-hidden w-full relative z-10">
-          <div className="flex-shrink-0 w-8 text-center flex justify-center items-center">
+        <div className="flex items-center gap-3 overflow-hidden w-full relative z-10">
+          <div className="flex-shrink-0 w-6 text-center flex justify-center items-center">
             {isRanking ? <RankBadge index={index} /> : (
-               <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-[#ffd700] border-[#ffd700] shadow-[0_0_10px_#ffd700]' : 'border-white/20 group-hover:border-[#ffd700]/50'}`}>
-                 {isSelected && <span className="text-[#1a1033] font-bold text-xs">✓</span>}
+               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-[#ffd700] border-[#ffd700] shadow-[0_0_10px_#ffd700]' : 'border-white/20 group-hover:border-[#ffd700]/50'}`}>
+                 {isSelected && <span className="text-[#1a1033] font-bold text-[10px]">✓</span>}
                </div>
             )}
           </div>
           
           <div className="flex-shrink-0">
              {/* eslint-disable-next-line @next/next/no-img-element */}
-             <img src={avatar} alt="icon" className="w-12 h-12 rounded-full border-2 border-[#e6e6fa]/20 object-cover shadow-lg" />
+             <img src={avatar} alt="icon" className={`${isRanking ? 'w-12 h-12' : 'w-10 h-10'} rounded-full border-2 border-[#e6e6fa]/20 object-cover shadow-lg`} />
           </div>
 
           <div className="flex-1 overflow-hidden">
-            <p className={`font-bold text-base truncate transition-colors ${isSelected ? 'text-[#1a1033]' : 'text-[#e6e6fa]'} ${isMe ? 'opacity-80' : ''}`}>
-              {profile.display_name} {isMe && <span className="text-xs font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(あなた)</span>}
+            <p className={`font-bold ${isRanking ? 'text-base' : 'text-sm'} truncate transition-colors ${isSelected ? 'text-[#1a1033]' : 'text-[#e6e6fa]'} ${isMe ? 'opacity-80' : ''}`}>
+              {profile.display_name} {isMe && <span className="text-[10px] font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(あなた)</span>}
             </p>
-            <div className="flex items-center gap-2 mt-1.5">
-              <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border ${isSelected ? 'bg-[#1a1033]/20 border-[#1a1033]/30' : 'bg-[#ffd700]/10 border-[#ffd700]/30'}`}>
-                <span className="text-xs">🍫</span>
-                <span className={`text-sm font-black ${isSelected ? 'text-[#1a1033]' : 'text-[#ffd700]'}`}>{profile.received_count}</span>
+            <div className="flex items-center gap-2 mt-1">
+              <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border ${isSelected ? 'bg-[#1a1033]/20 border-[#1a1033]/30' : 'bg-[#ffd700]/10 border-[#ffd700]/30'}`}>
+                <span className="text-[10px]">🍫</span>
+                <span className={`text-xs font-black ${isSelected ? 'text-[#1a1033]' : 'text-[#ffd700]'}`}>{profile.received_count}</span>
               </div>
               {cooldown && !isMe && (
-                <span className="text-[10px] text-[#ff3366] font-mono tracking-wider flex items-center gap-1">
+                <span className="text-[9px] text-[#ff3366] font-mono tracking-wider flex items-center gap-1">
                   <span className="inline-block w-1.5 h-1.5 bg-[#ff3366] rounded-full animate-ping"></span>あと15分
                 </span>
               )}
             </div>
-          </div>
-          <div className="flex-shrink-0">
-             {!isMe && !cooldown && !isSelected && <span className={`text-xl transition-all duration-300 group-hover:scale-125 group-hover:rotate-12 inline-block drop-shadow-[0_0_5px_rgba(255,215,0,0.5)]`}>🪐</span>}
-             {isSelected && <span className="text-xs bg-[#1a1033] text-[#ffd700] font-black px-3 py-1 rounded-full shadow-sm animate-bounce">選択済</span>}
           </div>
         </div>
       </div>
@@ -461,7 +463,6 @@ function GameContent({ session }: { session: any }) {
   };
 
   return (
-    // 🛠️ 修正: デザイン復旧。濃い背景色を指定し、白浮きを防止
     <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
       <RocketLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
@@ -496,7 +497,6 @@ function GameContent({ session }: { session: any }) {
           </div>
         </div>
 
-        {/* 🔄 ログイン/操作エリア */}
         {!user ? (
           <div className="text-center px-4 pb-12 animate-fade-in-up relative z-20">
             <p className="mb-10 text-base text-[#e6e6fa]/80 leading-8 font-serif italic drop-shadow-md">
@@ -512,67 +512,64 @@ function GameContent({ session }: { session: any }) {
           </div>
         ) : (
           <div className="animate-fade-in-up space-y-8 relative z-20 w-full max-w-4xl mx-auto mb-20">
-            <div className="bg-[#1a1033]/60 p-6 rounded-2xl border border-[#ffd700]/30 backdrop-blur-xl mx-2 shadow-[0_0_30px_rgba(26,16,51,0.5)] relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
+            {/* 🆕 PC: 横並び / Mobile: 縦並び レイアウト */}
+            <div className="flex flex-col md:flex-row gap-6 items-stretch">
               
-              <div className="relative z-10 mb-4 text-center border-b border-[#ffd700]/20 pb-4">
-                 <p className="text-[10px] text-[#ffd700] uppercase tracking-widest mb-1">STAR LOG</p>
-                 <div className="flex items-center justify-center gap-4">
-                   <div>
-                     <p className="text-xs text-[#e6e6fa]/60">GIFTED</p>
-                     <p className="text-2xl font-black text-[#ffd700]">{myTotalSent}</p>
+              {/* Left: Star Log (名刺サイズ) */}
+              <div className="w-full md:w-5/12 bg-[#1a1033]/60 p-6 rounded-2xl border border-[#ffd700]/30 backdrop-blur-xl relative overflow-hidden flex flex-col justify-center min-h-[220px] shadow-[0_0_30px_rgba(26,16,51,0.5)]">
+                 <div className="absolute inset-0 bg-gradient-to-br from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
+                 
+                 <div className="relative z-10 flex items-center gap-4 mb-4">
+                   {/* 🆕 アイコン表示 */}
+                   <div className="relative">
+                     {/* eslint-disable-next-line @next/next/no-img-element */}
+                     <img src={myAvatarUrl} alt="my icon" className="w-16 h-16 rounded-full border-2 border-[#ffd700] shadow-lg object-cover" />
+                     <div className="absolute -bottom-1 -right-1 bg-[#1a1033] text-[#ffd700] text-xs font-bold px-1.5 py-0.5 rounded border border-[#ffd700]">{myRankTitle}</div>
                    </div>
-                   <div className="h-8 w-px bg-[#ffd700]/30"></div>
+                   <div className="flex-1">
+                     <p className="text-[10px] text-[#e6e6fa]/60 uppercase tracking-widest mb-1">CREW NAME</p>
+                     <p className="text-xl font-bold text-[#e6e6fa] truncate">{myProfileName}</p>
+                   </div>
+                 </div>
+
+                 <div className="relative z-10 border-t border-[#ffd700]/20 pt-4 flex justify-between items-end">
                    <div>
-                     <p className="text-xs text-[#e6e6fa]/60">TITLE</p>
-                     <p className="text-lg font-bold text-[#e6e6fa]">{myRankTitle}</p>
+                     <p className="text-[10px] text-[#ffd700] uppercase tracking-widest mb-1">TOTAL GIFTED</p>
+                     <p className="text-3xl font-black text-[#ffd700]">{myTotalSent}</p>
+                   </div>
+                   <div className="text-right">
+                     <button onClick={signOut} className="text-[10px] text-[#e6e6fa]/60 hover:text-[#ff3366] underline decoration-dotted transition-colors">LOGOUT</button>
                    </div>
                  </div>
               </div>
 
-              <div className="flex justify-between items-center mb-4 relative z-10">
-                <div className="flex flex-col">
-                  <label className="text-[10px] text-[#ffd700] uppercase tracking-wider font-bold flex items-center gap-2">
-                    <span className="inline-block w-2 h-2 bg-[#ffd700] rounded-full animate-pulse"></span>
-                    現在のクルー名
-                  </label>
-                  <span className="text-lg font-bold text-[#e6e6fa] ml-4">{myProfileName}</span>
-                </div>
-                <button onClick={signOut} className="text-[10px] text-[#e6e6fa]/60 hover:text-[#ff3366] transition-colors underline decoration-dotted">ログアウト</button>
-              </div>
-              
-              <div className="flex gap-3 items-center relative z-10">
-                <input 
-                  type="text" 
-                  placeholder="新しい名前を入力..."
-                  className="flex-1 bg-[#0a0e1a]/50 font-bold text-xl text-[#e6e6fa] border-b-2 border-[#ffd700]/30 focus:border-[#ff3366] focus:outline-none transition-all pb-2 px-2 rounded-t-lg focus:bg-[#0a0e1a]/80" 
-                  value={inputName} 
-                  onChange={(e) => setInputName(e.target.value)} 
-                />
-                <button onClick={handleUpdateName} disabled={isActionLoading || !inputName.trim()} className={`text-[10px] font-bold px-6 py-3 rounded-lg transition-all shadow-lg relative overflow-hidden group ${isActionLoading || !inputName.trim() ? 'bg-[#1a1033] text-[#e6e6fa]/50 cursor-not-allowed' : 'bg-gradient-to-r from-[#ff3366] to-[#ffd700] text-[#1a1033] hover:shadow-[0_0_15px_#ff3366]'}`}>
-                  <span className="relative z-10">{isActionLoading ? '更新中...' : '更新'}</span>
-                  {!isActionLoading && inputName.trim() && <span className="absolute inset-0 bg-white/30 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>}
-                </button>
+              {/* Right: Search & Edit */}
+              <div className="w-full md:w-7/12 flex flex-col gap-4">
+                 <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="新しい名前を入力..."
+                      className="flex-1 px-4 py-3 rounded-xl bg-[#1a1033]/60 border border-[#ffd700]/30 text-[#e6e6fa] focus:border-[#ff3366] focus:outline-none transition-all"
+                      value={inputName} 
+                      onChange={(e) => setInputName(e.target.value)} 
+                    />
+                    <button onClick={handleUpdateName} disabled={isActionLoading || !inputName.trim()} className={`px-6 py-3 rounded-xl font-bold text-sm transition-all ${isActionLoading || !inputName.trim() ? 'bg-[#1a1033] text-gray-500' : 'bg-gradient-to-r from-[#ff3366] to-[#ffd700] text-[#1a1033] hover:shadow-[0_0_15px_#ff3366]'}`}>
+                      更新
+                    </button>
+                 </div>
+
+                 <div className="relative flex-1">
+                    <input type="text" placeholder="クルーメイトを検索..." className="w-full h-full px-5 py-4 rounded-xl bg-[#1a1033]/60 text-[#e6e6fa] placeholder-[#e6e6fa]/30 text-sm focus:outline-none border border-[#ffd700]/20 focus:border-[#ffd700]/80 transition-all backdrop-blur-md" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+                    <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[#ffd700]/50">🔍</span>
+                 </div>
               </div>
             </div>
 
-            <div className="custom-scrollbar px-2 max-h-[500px] overflow-y-auto pb-24">
-              <div className="px-4 mb-4 flex items-center justify-between">
-                <h2 className="font-bold text-[#ffd700] text-sm tracking-[0.2em] flex items-center gap-2">
-                  <span className="text-xl">👾</span> CAST CREWMATES
-                </h2>
-                {selectedUsers.size > 0 && <span className="bg-[#ff3366] text-white text-[10px] font-bold px-4 py-1 rounded-full shadow-[0_0_10px_#ff3366] animate-bounce">{selectedUsers.size}名 選択中</span>}
-              </div>
-              <div className="px-4 mb-6 relative">
-                <input type="text" placeholder="クルーメイトを名前で検索..." className="w-full px-5 py-4 rounded-2xl bg-[#1a1033]/80 text-[#e6e6fa] placeholder-[#e6e6fa]/30 text-sm focus:outline-none border-2 border-[#ffd700]/20 focus:border-[#ffd700]/80 focus:shadow-[0_0_15px_rgba(255,215,0,0.3)] transition-all backdrop-blur-md" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
-                <span className="absolute right-8 top-1/2 -translate-y-1/2 text-[#ffd700]/50">🔍</span>
-              </div>
-              
-              <div className="px-2">
-                {filteredMembers.length === 0 ? <p className="text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">クルーメイトが見つかりません</p> : 
-                  filteredMembers.map((m) => <UserCard key={m.id} profile={m} />)
-                }
-              </div>
+            {/* User List Grid (PC: 3 cols, Mobile: 1 col) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 pb-4">
+              {filteredMembers.length === 0 ? <p className="col-span-full text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">クルーメイトが見つかりません</p> : 
+                filteredMembers.map((m) => <UserCard key={m.id} profile={m} />)
+              }
             </div>
 
             <div className="fixed bottom-6 left-0 right-0 px-6 z-50 pointer-events-none">
@@ -586,7 +583,6 @@ function GameContent({ session }: { session: any }) {
           </div>
         )}
 
-        {/* 🔄 ランキングエリア */}
         <div className="mb-12 animate-fade-in-up relative">
           <div className="absolute inset-0 bg-gradient-to-b from-[#ffd700]/5 to-transparent blur-xl -z-10 rounded-full"></div>
           
