@@ -67,8 +67,8 @@ const StarBackground = () => {
   }, []);
 
   return (
-    // ⚠️ 背景色はここで指定。z-indexはマイナスのまま
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1] bg-[#050510]">
+    // 背景色を指定せず、z-indexをマイナスに
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
       <style jsx>{`
         @keyframes animStar { from { transform: translateY(0px); } to { transform: translateY(-2000px); } }
         @keyframes shooting {
@@ -181,7 +181,7 @@ export default function CosmicChocolatApp() {
 
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen bg-[#050510] flex items-center justify-center overflow-hidden relative">
+      <div className="min-h-screen text-[#e6e6fa] flex items-center justify-center overflow-hidden relative">
         <StarBackground />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a1033]/40 via-[#0a0e1a]/60 to-black/80 z-0"></div>
         <div className="text-center relative z-10">
@@ -202,7 +202,11 @@ function GameContent({ session }: { session: any }) {
   const user = session?.user ?? null;
   const [rankingList, setRankingList] = useState<Profile[]>([]);
   const [totalChocolates, setTotalChocolates] = useState<number>(0);
-  const [myProfileName, setMyProfileName] = useState('');
+  
+  // 🛠️ 修正: 表示用と入力用の名前Stateを分離
+  const [myProfileName, setMyProfileName] = useState(''); // 表示用(DB同期)
+  const [inputName, setInputName] = useState(''); // 入力用(ローカルのみ)
+
   const [memberList, setMemberList] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [searchText, setSearchText] = useState('');
@@ -250,8 +254,7 @@ function GameContent({ session }: { session: any }) {
     }
   }, []);
 
-  // 🛠️ 修正: skipNameUpdateフラグを追加し、リアルタイム更新時は名前を上書きしないように変更
-  const fetchUserData = useCallback(async (skipNameUpdate = false) => {
+  const fetchUserData = useCallback(async () => {
     if (!user) return;
     let name = user.user_metadata.full_name || 'クルー';
     let avatar = user.user_metadata.avatar_url || '';
@@ -266,8 +269,8 @@ function GameContent({ session }: { session: any }) {
       await supabase.from('profiles').insert({ id: user.id, display_name: name, avatar_url: avatar }); 
     }
     
-    // 🛠️ 入力中の名前を守るため、スキップフラグがfalseの時だけstateを更新
-    if (isMounted.current && !skipNameUpdate) setMyProfileName(name);
+    // 🛠️ 修正: DBの名前は「表示用State (myProfileName)」にのみ入れる。入力欄(inputName)は触らない。
+    if (isMounted.current) setMyProfileName(name);
 
     const { data: profiles } = await supabase.from('profiles').select('*').neq('id', user.id);
     const { data: myHistory } = await supabase.from('chocolates').select('receiver_id, created_at, quantity').eq('sender_id', user.id);
@@ -307,15 +310,13 @@ function GameContent({ session }: { session: any }) {
     fetchConfig(); 
     fetchRanking(); 
     fetchLogs(); 
-    // 🛠️ 初回ロード: 名前も取得してセットする (false)
-    if (user) fetchUserData(false);
+    if (user) fetchUserData();
     
     const channel = supabase.channel('realtime')
       .on('postgres_changes', { event: '*', schema: 'public' }, () => {
         fetchRanking(); 
         fetchLogs(); 
-        // 🛠️ リアルタイム更新: 名前は上書きしない (true)
-        if (user) fetchUserData(true);
+        if (user) fetchUserData();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, () => {
         fetchConfig(); 
@@ -369,14 +370,20 @@ function GameContent({ session }: { session: any }) {
     await supabase.from('chocolates').insert(updates);
     
     fetchRanking(); 
-    // 送信直後は自分の情報もリフレッシュ (名前更新はしない)
-    fetchUserData(true);
+    fetchUserData();
   };
 
   const handleUpdateName = async () => {
-    if (!user || !myProfileName) return;
+    // 🛠️ 修正: 入力欄(inputName)が空なら何もしない
+    if (!user || !inputName.trim()) return;
+    
     setIsActionLoading(true);
-    await supabase.from('profiles').update({ display_name: myProfileName }).eq('id', user.id);
+    // 🛠️ 修正: inputNameの内容でDBを更新
+    await supabase.from('profiles').update({ display_name: inputName }).eq('id', user.id);
+    
+    // 🛠️ 修正: 送信後は入力欄をクリアする
+    setInputName('');
+    
     setTimeout(() => setIsActionLoading(false), 500);
   };
   const signIn = () => supabase.auth.signInWithOAuth({ provider: 'discord', options: { queryParams: { prompt: 'consent' } } });
@@ -468,7 +475,6 @@ function GameContent({ session }: { session: any }) {
   };
 
   return (
-    // 🛠️ 修正: bg-[#050510]を削除し、星空が見えるようにする
     <main className="min-h-screen text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
       <RocketLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
@@ -538,17 +544,29 @@ function GameContent({ session }: { session: any }) {
               </div>
 
               <div className="flex justify-between items-center mb-4 relative z-10">
-                <label className="text-[10px] text-[#ffd700] uppercase tracking-wider block font-bold flex items-center gap-2">
-                  <span className="inline-block w-2 h-2 bg-[#ffd700] rounded-full animate-pulse"></span>
-                  クルー名
-                </label>
+                {/* 🛠️ 修正: 現在のクルー名を表示専用としてここに配置 */}
+                <div className="flex flex-col">
+                  <label className="text-[10px] text-[#ffd700] uppercase tracking-wider font-bold flex items-center gap-2">
+                    <span className="inline-block w-2 h-2 bg-[#ffd700] rounded-full animate-pulse"></span>
+                    現在のクルー名
+                  </label>
+                  <span className="text-lg font-bold text-[#e6e6fa] ml-4">{myProfileName}</span>
+                </div>
                 <button onClick={signOut} className="text-[10px] text-[#e6e6fa]/60 hover:text-[#ff3366] transition-colors underline decoration-dotted">ログアウト</button>
               </div>
+              
+              {/* 🛠️ 修正: 入力欄は「変更用」として独立。DBと同期しないので勝手に消えない */}
               <div className="flex gap-3 items-center relative z-10">
-                <input type="text" className="flex-1 bg-[#0a0e1a]/50 font-bold text-xl text-[#e6e6fa] border-b-2 border-[#ffd700]/30 focus:border-[#ff3366] focus:outline-none transition-all pb-2 px-2 rounded-t-lg focus:bg-[#0a0e1a]/80" value={myProfileName} onChange={(e) => setMyProfileName(e.target.value)} />
-                <button onClick={handleUpdateName} disabled={isActionLoading} className={`text-[10px] font-bold px-6 py-3 rounded-lg transition-all shadow-lg relative overflow-hidden group ${isActionLoading ? 'bg-[#1a1033] text-[#e6e6fa]/50 cursor-wait' : 'bg-gradient-to-r from-[#ff3366] to-[#ffd700] text-[#1a1033] hover:shadow-[0_0_15px_#ff3366]'}`}>
+                <input 
+                  type="text" 
+                  placeholder="新しい名前を入力..."
+                  className="flex-1 bg-[#0a0e1a]/50 font-bold text-xl text-[#e6e6fa] border-b-2 border-[#ffd700]/30 focus:border-[#ff3366] focus:outline-none transition-all pb-2 px-2 rounded-t-lg focus:bg-[#0a0e1a]/80" 
+                  value={inputName} 
+                  onChange={(e) => setInputName(e.target.value)} 
+                />
+                <button onClick={handleUpdateName} disabled={isActionLoading || !inputName.trim()} className={`text-[10px] font-bold px-6 py-3 rounded-lg transition-all shadow-lg relative overflow-hidden group ${isActionLoading || !inputName.trim() ? 'bg-[#1a1033] text-[#e6e6fa]/50 cursor-not-allowed' : 'bg-gradient-to-r from-[#ff3366] to-[#ffd700] text-[#1a1033] hover:shadow-[0_0_15px_#ff3366]'}`}>
                   <span className="relative z-10">{isActionLoading ? '更新中...' : '更新'}</span>
-                  {!isActionLoading && <span className="absolute inset-0 bg-white/30 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>}
+                  {!isActionLoading && inputName.trim() && <span className="absolute inset-0 bg-white/30 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>}
                 </button>
               </div>
             </div>
