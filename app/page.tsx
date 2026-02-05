@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@supabase/supabase-js';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, memo } from 'react';
 
 // ==========================================
 // ⚙️ 設定
@@ -37,9 +37,9 @@ type ActivityLog = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント
+// 🌠 星空生成コンポーネント (メモ化)
 // ==========================================
-const StarBackground = () => {
+const StarBackground = memo(() => {
   const [starsSmall, setStarsSmall] = useState('');
   const [starsMedium, setStarsMedium] = useState('');
   
@@ -67,7 +67,8 @@ const StarBackground = () => {
   }, []);
 
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1] bg-[#050510]">
+    // 🛠️ 修正: ここに宇宙色(bg-[#050510])を指定し、z-0にする
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-[#050510]">
       <style jsx>{`
         @keyframes animStar { from { transform: translateY(0px); } to { transform: translateY(-2000px); } }
         @keyframes shooting {
@@ -102,12 +103,13 @@ const StarBackground = () => {
       <div className="shooting-star" style={{ top: '30%', right: '5%', animationDelay: '5s' }}></div>
     </div>
   );
-};
+});
+StarBackground.displayName = 'StarBackground';
 
 // ==========================================
 // 🚀 ロケット演出レイヤー
 // ==========================================
-const RocketLayer = ({ isActive, onComplete }: { isActive: boolean, onComplete: () => void }) => {
+const RocketLayer = memo(({ isActive, onComplete }: { isActive: boolean, onComplete: () => void }) => {
   useEffect(() => {
     if (isActive) {
       const timer = setTimeout(onComplete, 2000);
@@ -123,12 +125,13 @@ const RocketLayer = ({ isActive, onComplete }: { isActive: boolean, onComplete: 
       <div className="absolute text-4xl animate-[flyUp_1.6s_ease-in_forwards] right-[40%] drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]" style={{ animationDelay: '0.2s' }}>🍫</div>
     </div>
   );
-};
+});
+RocketLayer.displayName = 'RocketLayer';
 
 // ==========================================
-// 📡 アクティビティログ (サイドパネル)
+// 📡 アクティビティログ
 // ==========================================
-const ActivityPanel = ({ isOpen, onClose, logs }: { isOpen: boolean, onClose: () => void, logs: ActivityLog[] }) => {
+const ActivityPanel = memo(({ isOpen, onClose, logs }: { isOpen: boolean, onClose: () => void, logs: ActivityLog[] }) => {
   return (
     <>
       <div className={`fixed inset-0 bg-black/50 z-[80] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose}></div>
@@ -159,7 +162,8 @@ const ActivityPanel = ({ isOpen, onClose, logs }: { isOpen: boolean, onClose: ()
       </div>
     </>
   );
-};
+});
+ActivityPanel.displayName = 'ActivityPanel';
 
 // ==========================================
 // 🧱 メインコンポーネント
@@ -205,7 +209,7 @@ function GameContent({ session }: { session: any }) {
   const [myProfileName, setMyProfileName] = useState(''); 
   const [inputName, setInputName] = useState(''); 
   const [myAvatarUrl, setMyAvatarUrl] = useState('');
-  const [isEditing, setIsEditing] = useState(false); // 編集モード
+  const [isEditing, setIsEditing] = useState(false);
 
   const [memberList, setMemberList] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
@@ -254,8 +258,11 @@ function GameContent({ session }: { session: any }) {
     }
   }, []);
 
+  // 🚀 高速化: Promise.allで並列読み込み
   const fetchUserData = useCallback(async (skipNameUpdate = false) => {
     if (!user) return;
+    
+    // 1. 自分のプロフィール取得・更新（ここは整合性のため直列）
     let name = user.user_metadata.full_name || 'クルー';
     let avatar = user.user_metadata.avatar_url || 'https://www.gravatar.com/avatar?d=mp';
 
@@ -278,10 +285,18 @@ function GameContent({ session }: { session: any }) {
         setMyAvatarUrl(avatar);
     }
 
-    const { data: profiles } = await supabase.from('profiles').select('*').neq('id', user.id);
-    const { data: myHistory } = await supabase.from('chocolates').select('receiver_id, created_at, quantity').eq('sender_id', user.id);
-    const { data: ranks } = await supabase.from('galaxy_ranking').select('*');
-    
+    // 2. 重いデータ取得処理を並列化（ここが高速化の肝！）
+    const [profilesRes, historyRes, ranksRes] = await Promise.all([
+      supabase.from('profiles').select('*').neq('id', user.id),
+      supabase.from('chocolates').select('receiver_id, created_at, quantity').eq('sender_id', user.id),
+      supabase.from('galaxy_ranking').select('*')
+    ]);
+
+    const profiles = profilesRes.data;
+    const myHistory = historyRes.data;
+    const ranks = ranksRes.data;
+
+    // 3. データ整形（メモリ上での処理）
     const totalSent = myHistory?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0;
     if (isMounted.current) setMyTotalSent(totalSent);
     
@@ -373,13 +388,12 @@ function GameContent({ session }: { session: any }) {
     setIsActionLoading(true);
     await supabase.from('profiles').update({ display_name: inputName }).eq('id', user.id);
     setMyProfileName(inputName);
-    setIsEditing(false); // 更新完了で編集モード終了
+    setIsEditing(false);
     setTimeout(() => setIsActionLoading(false), 500);
   };
   const signIn = () => supabase.auth.signInWithOAuth({ provider: 'discord', options: { queryParams: { prompt: 'consent' } } });
   const signOut = async () => { await supabase.auth.signOut(); };
 
-  // 🆕 文字サイズ調整関数
   const getNameSize = (name: string) => {
     if (name.length > 20) return 'text-xs';
     if (name.length > 10) return 'text-sm';
@@ -452,6 +466,9 @@ function GameContent({ session }: { session: any }) {
               {profile.display_name} {isMe && <span className="text-[10px] font-normal ml-1 text-[#ffd700] border border-[#ffd700]/30 px-1 rounded">(あなた)</span>}
             </p>
             <div className="flex items-center gap-2 mt-1">
+              {isRanking && index < 5 && (
+                 <span className="text-[9px] text-[#ffd700] bg-[#ffd700]/10 px-1.5 py-0.5 rounded border border-[#ffd700]/20">TOP STAR</span>
+              )}
               <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border ${isSelected ? 'bg-[#1a1033]/20 border-[#1a1033]/30' : 'bg-[#ffd700]/10 border-[#ffd700]/30'}`}>
                 <span className="text-[10px]">🍫</span>
                 <span className={`text-xs font-black ${isSelected ? 'text-[#1a1033]' : 'text-[#ffd700]'}`}>{profile.received_count}</span>
@@ -469,7 +486,8 @@ function GameContent({ session }: { session: any }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
+    // 🛠️ 修正: メインコンテンツの背景を透明にし、背面のStarBackgroundが見えるようにする
+    <main className="min-h-screen text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
       <RocketLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
 
@@ -495,7 +513,7 @@ function GameContent({ session }: { session: any }) {
           <div className="relative group mx-auto max-w-xs">
             <div className="absolute inset-0 bg-gradient-to-r from-[#ffd700] to-[#ff3366] rounded-2xl blur-md opacity-50 group-hover:opacity-80 transition-opacity duration-500 animate-pulse"></div>
             <div className="bg-[#1a1033]/90 rounded-xl p-5 text-center border border-[#ffd700]/30 relative backdrop-blur-xl">
-              <p className="text-[10px] text-[#ffd700] uppercase tracking-[0.3em] mb-1">Total Stardust Gifted</p>
+              <p className="text-[10px] text-[#ffd700] uppercase tracking-[0.3em] mb-1">Total Chocolat</p>
               <p className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-[#ffd700] to-[#ff6b6b] drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
                 {totalChocolates.toLocaleString()}
               </p>
@@ -524,7 +542,6 @@ function GameContent({ session }: { session: any }) {
               <div className="w-full md:w-5/12 bg-[#1a1033]/60 p-6 rounded-2xl border border-[#ffd700]/30 backdrop-blur-xl relative overflow-hidden flex flex-col justify-center min-h-[220px] shadow-[0_0_30px_rgba(26,16,51,0.5)]">
                  <div className="absolute inset-0 bg-gradient-to-br from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
                  
-                 {/* 上部: アイコンと名前（編集機能付き） */}
                  <div className="relative z-10 flex items-center gap-4 mb-4">
                    <div className="relative">
                      {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -533,7 +550,7 @@ function GameContent({ session }: { session: any }) {
                    <div className="flex-1">
                      <p className="text-[10px] text-[#e6e6fa]/60 uppercase tracking-widest mb-1">CREW NAME</p>
                      
-                     {/* 🆕 名前表示 / 編集モードの切り替え */}
+                     {/* 🆕 名前編集エリア */}
                      <div className={`flex items-center gap-2 rounded-xl p-1.5 transition-colors border ${isEditing ? 'bg-black/40 border-[#ff3366]/50' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
                         {isEditing ? (
                           <input 
@@ -558,9 +575,8 @@ function GameContent({ session }: { session: any }) {
                    </div>
                  </div>
 
-                 {/* 下部: ステータスと合計数 */}
                  <div className="relative z-10 border-t border-[#ffd700]/20 pt-4 flex justify-between items-end">
-                   {/* 🆕 ランクをここに移動 */}
+                   {/* 🛠️ 修正: ランクを左下に配置 */}
                    <div>
                      <p className="text-[10px] text-[#e6e6fa]/60 uppercase tracking-widest mb-1">RANK</p>
                      <p className="text-sm font-bold text-[#ffd700] bg-[#ffd700]/10 px-2 py-1 rounded border border-[#ffd700]/30">{myRankTitle}</p>
@@ -573,7 +589,7 @@ function GameContent({ session }: { session: any }) {
                  <button onClick={signOut} className="absolute bottom-2 left-6 text-[9px] text-[#e6e6fa]/40 hover:text-[#ff3366] transition-colors underline decoration-dotted">LOGOUT</button>
               </div>
 
-              {/* Right: Search Only (PC版ではここに検索のみ配置) */}
+              {/* Right: Search Only */}
               <div className="w-full md:w-7/12 flex flex-col justify-center">
                  <div className="relative w-full h-full bg-[#1a1033]/60 rounded-2xl border border-[#ffd700]/30 p-6 flex flex-col justify-center">
                     <h3 className="text-[#ffd700] font-bold text-sm tracking-[0.2em] mb-4 flex items-center gap-2">
