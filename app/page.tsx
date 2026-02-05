@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@supabase/supabase-js';
-import { useEffect, useState, useRef, useCallback, memo } from 'react';
+import { useEffect, useState, useRef, useCallback, memo, useMemo } from 'react';
 
 // ==========================================
 // ⚙️ 設定
@@ -13,7 +13,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // ==========================================
 // 📝 型定義
 // ==========================================
-// Viewから取得するデータ型に統一
 type CrewStats = {
   id: string;
   display_name: string;
@@ -38,7 +37,7 @@ type ActivityLog = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント (メモ化)
+// 🌠 星空生成コンポーネント
 // ==========================================
 const StarBackground = memo(() => {
   const [starsSmall, setStarsSmall] = useState('');
@@ -73,7 +72,6 @@ const StarBackground = memo(() => {
         @keyframes animStar { from { transform: translateY(0px); } to { transform: translateY(-2000px); } }
         .star-layer { position: absolute; left: 0; top: 0; background: transparent; width: 1px; height: 1px; }
       `}</style>
-      
       {starsSmall && (
         <>
           <div className="star-layer" style={{ boxShadow: starsSmall, animation: 'animStar 150s linear infinite' }} />
@@ -167,7 +165,6 @@ const EmptyCard = memo(({ index }: { index: number }) => (
 ));
 EmptyCard.displayName = 'EmptyCard';
 
-// 🆕 スケルトン（読み込み中の枠）
 const SkeletonCard = memo(() => (
   <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border border-white/5 bg-[#1a1033]/30 h-[96px] animate-pulse">
      <div className="flex items-center gap-4 w-full">
@@ -183,7 +180,7 @@ const SkeletonCard = memo(() => (
 SkeletonCard.displayName = 'SkeletonCard';
 
 interface UserCardProps {
-  profile: CrewStats; // 🆕 型を変更
+  profile: CrewStats;
   index?: number;
   isRanking?: boolean;
   isSelected?: boolean;
@@ -199,14 +196,14 @@ const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isM
     <div 
       onClick={() => onSelect(profile.id)}
       className={`
-        relative flex items-center justify-between p-3 mb-2 rounded-xl transition-all duration-300 border select-none backdrop-blur-md overflow-hidden group
+        relative flex items-center justify-between p-3 mb-2 rounded-xl transition-all duration-200 border select-none overflow-hidden group
         ${isRanking ? 'h-[96px] mb-3 p-4 rounded-2xl' : 'h-[80px]'}
         ${isMe ? 'bg-[#1a1033]/40 border-[#ffd700]/20 cursor-default' : 'cursor-pointer'}
         ${!isMe && isCooldown ? 'opacity-50 grayscale cursor-not-allowed bg-[#0a0e1a]/80 border-white/5' : ''}
         ${!isMe && !isCooldown && isSelected 
           ? 'bg-gradient-to-r from-[#ff3366]/80 to-[#ffd700]/80 border-[#ffd700] shadow-[0_0_20px_rgba(255,51,102,0.5)] scale-[1.01]' 
           : !isMe && !isCooldown 
-            ? 'bg-[#1a1033]/60 border-white/10 hover:border-[#ffd700]/50 hover:bg-[#1a1033]/80 hover:shadow-[0_0_15px_rgba(26,16,51,0.8)]' 
+            ? 'bg-[#1a1033]/80 border-white/10 hover:border-[#ffd700]/50 hover:bg-[#1a1033] hover:shadow-[0_0_15px_rgba(26,16,51,0.8)]' 
             : ''
         }
       `}
@@ -290,13 +287,12 @@ export default function CosmicChocolatApp() {
 function GameContent({ session }: { session: any }) {
   const user = session?.user ?? null;
   
-  // 🆕 データ型をCrewStatsに変更
   const [rankingList, setRankingList] = useState<CrewStats[]>([]);
   const [memberList, setMemberList] = useState<CrewStats[]>([]);
   
   const [totalChocolates, setTotalChocolates] = useState<number>(0);
   const [isRankingLoading, setIsRankingLoading] = useState(true);
-  const [isMemberLoading, setIsMemberLoading] = useState(true); // 🆕 メンバーリスト用ローディング
+  const [isMemberLoading, setIsMemberLoading] = useState(true);
 
   const [myProfileName, setMyProfileName] = useState(''); 
   const [inputName, setInputName] = useState(''); 
@@ -317,7 +313,7 @@ function GameContent({ session }: { session: any }) {
   const [isLogOpen, setIsLogOpen] = useState(false);
 
   // ----------------------------------------
-  // 🔄 データ取得 (超高速化)
+  // 🔄 データ取得 (イベント駆動型)
   // ----------------------------------------
   const fetchConfig = useCallback(async () => {
     const { data } = await supabase.from('system_settings').select('*');
@@ -333,12 +329,17 @@ function GameContent({ session }: { session: any }) {
     if (isMounted.current && data) setActivityLogs(data);
   }, []);
 
-  // 🚀 DBビュー(view_crew_stats)から一撃で取得
-  const fetchData = useCallback(async (skipNameUpdate = false) => {
+  // 🚀 isBackground = true ならローディングを出さない（サイレント更新）
+  const fetchData = useCallback(async (isBackground = false) => {
     if (!user) return;
-    setIsMemberLoading(true);
+    
+    // 初回ロード時のみスケルトンを出す
+    if (!isBackground) {
+      setIsMemberLoading(true);
+      setIsRankingLoading(true);
+    }
 
-    // 1. 自分の名前とアバター確保
+    // 1. 自分情報
     const { data: me } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
     let currentName = me?.display_name || user.user_metadata.full_name || 'クルー';
     let currentAvatar = me?.avatar_url || user.user_metadata.avatar_url;
@@ -349,16 +350,14 @@ function GameContent({ session }: { session: any }) {
        await supabase.from('profiles').update({ avatar_url: currentAvatar }).eq('id', user.id);
     }
 
-    if (isMounted.current) {
-      if (!skipNameUpdate) {
-        setMyProfileName(currentName);
-        setInputName(currentName);
-      }
+    // 初回のみ名前をセット（編集中に書き換わらないように）
+    if (isMounted.current && !isBackground) {
+      setMyProfileName(currentName);
+      setInputName(currentName);
       setMyAvatarUrl(currentAvatar || 'https://www.gravatar.com/avatar?d=mp');
     }
 
-    // 2. 【爆速】集計済みビューから全データを取得
-    // view_crew_stats は id, display_name, avatar_url, received_count, last_received_at を持っている
+    // 2. ビューから一括取得
     const { data: allStats, error } = await supabase
       .from('view_crew_stats')
       .select('*')
@@ -367,15 +366,10 @@ function GameContent({ session }: { session: any }) {
     if (error) { console.error(error); return; }
     if (!allStats) return;
 
-    // 3. データを振り分け
-    // 自分以外のリスト (検索用)
     const members = allStats.filter((p: any) => p.id !== user.id);
-    // ランキング (Top 10)
     const ranking = allStats.slice(0, 10);
-    // 総チョコ数 (クライアント側で足し合わせても数が少ないので高速)
     const total = allStats.reduce((acc: number, curr: any) => acc + (curr.received_count || 0), 0);
 
-    // 4. 自分の送信履歴だけは個別に取る必要がある（ランク称号のため）
     const { data: mySent } = await supabase.from('chocolates').select('quantity').eq('sender_id', user.id);
     const totalSent = mySent?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0;
 
@@ -384,8 +378,12 @@ function GameContent({ session }: { session: any }) {
       setRankingList(ranking);
       setTotalChocolates(total);
       setMyTotalSent(totalSent);
-      setIsRankingLoading(false);
-      setIsMemberLoading(false);
+      
+      // データ取得完了後にローディングを消す
+      if (!isBackground) {
+        setIsRankingLoading(false);
+        setIsMemberLoading(false);
+      }
 
       if (appConfig.rank_titles) {
         const titles: RankTitle[] = appConfig.rank_titles;
@@ -395,13 +393,17 @@ function GameContent({ session }: { session: any }) {
     }
   }, [user, appConfig]);
 
+  // 🛠️ 修正: 初回マウント時のみ実行（空の依存配列で無限ループを阻止）
+  // ユーザーが変わった時だけ再実行
   useEffect(() => {
     isMounted.current = true;
-    fetchConfig(); 
-    fetchLogs(); 
-    if (user) fetchData();
+    if (user) {
+      fetchConfig(); 
+      fetchLogs(); 
+      fetchData(false); // 初回なのでスケルトンあり
+    }
     return () => { isMounted.current = false; };
-  }, [user, fetchConfig, fetchLogs, fetchData]);
+  }, [user]); 
 
   // ----------------------------------------
   // 🎮 アクション
@@ -414,15 +416,13 @@ function GameContent({ session }: { session: any }) {
   const handleClickUser = useCallback((targetId: string) => {
     if (!user) return alert("ログインしてください");
     if (targetId === user.id) return alert("自分には贈れません");
-    const detailInfo = memberList.find(m => m.id === targetId);
-    if (detailInfo && isCooldown(detailInfo.last_received_at)) { return alert("15分休憩しましょう！"); }
     
     setSelectedUsers(prev => {
       const newSet = new Set(prev);
       newSet.has(targetId) ? newSet.delete(targetId) : newSet.add(targetId);
       return newSet;
     });
-  }, [user, memberList, isCooldown]);
+  }, [user]);
 
   const handleSend = async () => {
     if (!user || selectedUsers.size === 0) return;
@@ -448,7 +448,7 @@ function GameContent({ session }: { session: any }) {
     }));
     await supabase.from('chocolates').insert(updates);
     
-    // 更新
+    // 🛠️ 送信後はバックグラウンド更新（スケルトンなし）
     fetchData(true);
   };
 
@@ -458,6 +458,9 @@ function GameContent({ session }: { session: any }) {
     await supabase.from('profiles').update({ display_name: inputName }).eq('id', user.id);
     setMyProfileName(inputName);
     setIsEditing(false);
+    
+    // 名前変更後もバックグラウンド更新
+    fetchData(true);
     setTimeout(() => setIsActionLoading(false), 500);
   };
   const signIn = () => supabase.auth.signInWithOAuth({ provider: 'discord', options: { queryParams: { prompt: 'consent' } } });
@@ -469,7 +472,10 @@ function GameContent({ session }: { session: any }) {
     return 'text-xl';
   };
 
-  const filteredMembers = memberList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
+  // メモ化されたリスト
+  const filteredMembers = useMemo(() => {
+    return memberList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
+  }, [memberList, searchText]);
 
   return (
     <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
