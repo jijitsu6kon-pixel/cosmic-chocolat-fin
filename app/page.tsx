@@ -204,7 +204,8 @@ function GameContent({ session }: { session: any }) {
   
   const [myProfileName, setMyProfileName] = useState(''); 
   const [inputName, setInputName] = useState(''); 
-  const [myAvatarUrl, setMyAvatarUrl] = useState(''); // 🆕 自分のアイコン用
+  const [myAvatarUrl, setMyAvatarUrl] = useState('');
+  const [isEditing, setIsEditing] = useState(false); // 編集モード
 
   const [memberList, setMemberList] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
@@ -261,10 +262,8 @@ function GameContent({ session }: { session: any }) {
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
     if (profile) { 
       name = profile.display_name; 
-      // DBにアバターがあればそれを使う
       if (profile.avatar_url) avatar = profile.avatar_url;
       else if (user.user_metadata.avatar_url) {
-         // なければ更新
          await supabase.from('profiles').update({ avatar_url: user.user_metadata.avatar_url }).eq('id', user.id);
       }
     } else { 
@@ -272,7 +271,10 @@ function GameContent({ session }: { session: any }) {
     }
     
     if (isMounted.current) {
-        if (!skipNameUpdate) setMyProfileName(name);
+        if (!skipNameUpdate) {
+          setMyProfileName(name);
+          setInputName(name); 
+        }
         setMyAvatarUrl(avatar);
     }
 
@@ -309,7 +311,6 @@ function GameContent({ session }: { session: any }) {
     }
   }, [user, appConfig]); 
 
-  // 定期更新なし。初回ロードのみ
   useEffect(() => {
     isMounted.current = true;
     fetchConfig(); 
@@ -363,7 +364,6 @@ function GameContent({ session }: { session: any }) {
     }));
     await supabase.from('chocolates').insert(updates);
     
-    // 送信時のみ手動更新
     fetchRanking(); 
     fetchUserData(true);
   };
@@ -373,11 +373,18 @@ function GameContent({ session }: { session: any }) {
     setIsActionLoading(true);
     await supabase.from('profiles').update({ display_name: inputName }).eq('id', user.id);
     setMyProfileName(inputName);
-    setInputName('');
+    setIsEditing(false); // 更新完了で編集モード終了
     setTimeout(() => setIsActionLoading(false), 500);
   };
   const signIn = () => supabase.auth.signInWithOAuth({ provider: 'discord', options: { queryParams: { prompt: 'consent' } } });
   const signOut = async () => { await supabase.auth.signOut(); };
+
+  // 🆕 文字サイズ調整関数
+  const getNameSize = (name: string) => {
+    if (name.length > 20) return 'text-xs';
+    if (name.length > 10) return 'text-sm';
+    return 'text-xl';
+  };
 
   // ----------------------------------------
   // 🎨 表示パーツ
@@ -402,7 +409,6 @@ function GameContent({ session }: { session: any }) {
     </div>
   );
 
-  // 参加者カード (3等分サイズに調整)
   const UserCard = ({ profile, index = -1, isRanking = false }: { profile: Profile, index?: number, isRanking?: boolean }) => {
     const isSelected = selectedUsers.has(profile.id);
     const isMe = user && profile.id === user.id;
@@ -512,60 +518,75 @@ function GameContent({ session }: { session: any }) {
           </div>
         ) : (
           <div className="animate-fade-in-up space-y-8 relative z-20 w-full max-w-4xl mx-auto mb-20">
-            {/* 🆕 PC: 横並び / Mobile: 縦並び レイアウト */}
             <div className="flex flex-col md:flex-row gap-6 items-stretch">
               
-              {/* Left: Star Log (名刺サイズ) */}
+              {/* Star Log (名刺サイズ) */}
               <div className="w-full md:w-5/12 bg-[#1a1033]/60 p-6 rounded-2xl border border-[#ffd700]/30 backdrop-blur-xl relative overflow-hidden flex flex-col justify-center min-h-[220px] shadow-[0_0_30px_rgba(26,16,51,0.5)]">
                  <div className="absolute inset-0 bg-gradient-to-br from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
                  
+                 {/* 上部: アイコンと名前（編集機能付き） */}
                  <div className="relative z-10 flex items-center gap-4 mb-4">
-                   {/* 🆕 アイコン表示 */}
                    <div className="relative">
                      {/* eslint-disable-next-line @next/next/no-img-element */}
                      <img src={myAvatarUrl} alt="my icon" className="w-16 h-16 rounded-full border-2 border-[#ffd700] shadow-lg object-cover" />
-                     <div className="absolute -bottom-1 -right-1 bg-[#1a1033] text-[#ffd700] text-xs font-bold px-1.5 py-0.5 rounded border border-[#ffd700]">{myRankTitle}</div>
                    </div>
                    <div className="flex-1">
                      <p className="text-[10px] text-[#e6e6fa]/60 uppercase tracking-widest mb-1">CREW NAME</p>
-                     <p className="text-xl font-bold text-[#e6e6fa] truncate">{myProfileName}</p>
+                     
+                     {/* 🆕 名前表示 / 編集モードの切り替え */}
+                     <div className={`flex items-center gap-2 rounded-xl p-1.5 transition-colors border ${isEditing ? 'bg-black/40 border-[#ff3366]/50' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
+                        {isEditing ? (
+                          <input 
+                            autoFocus
+                            type="text" 
+                            className={`flex-1 bg-transparent outline-none text-white font-bold ${getNameSize(inputName)}`}
+                            value={inputName} 
+                            onChange={(e) => setInputName(e.target.value)} 
+                          />
+                        ) : (
+                          <span className={`flex-1 text-[#e6e6fa] font-bold truncate ${getNameSize(myProfileName)}`}>{myProfileName}</span>
+                        )}
+                        
+                        <button 
+                          onClick={() => isEditing ? handleUpdateName() : setIsEditing(true)} 
+                          disabled={isActionLoading}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1033] hover:bg-[#2a2040] text-[#ffd700] transition-all"
+                        >
+                          {isActionLoading ? '...' : isEditing ? '🔄' : '✏️'}
+                        </button>
+                     </div>
                    </div>
                  </div>
 
+                 {/* 下部: ステータスと合計数 */}
                  <div className="relative z-10 border-t border-[#ffd700]/20 pt-4 flex justify-between items-end">
+                   {/* 🆕 ランクをここに移動 */}
                    <div>
+                     <p className="text-[10px] text-[#e6e6fa]/60 uppercase tracking-widest mb-1">RANK</p>
+                     <p className="text-sm font-bold text-[#ffd700] bg-[#ffd700]/10 px-2 py-1 rounded border border-[#ffd700]/30">{myRankTitle}</p>
+                   </div>
+                   <div className="text-right">
                      <p className="text-[10px] text-[#ffd700] uppercase tracking-widest mb-1">TOTAL GIFTED</p>
                      <p className="text-3xl font-black text-[#ffd700]">{myTotalSent}</p>
                    </div>
-                   <div className="text-right">
-                     <button onClick={signOut} className="text-[10px] text-[#e6e6fa]/60 hover:text-[#ff3366] underline decoration-dotted transition-colors">LOGOUT</button>
-                   </div>
                  </div>
+                 <button onClick={signOut} className="absolute bottom-2 left-6 text-[9px] text-[#e6e6fa]/40 hover:text-[#ff3366] transition-colors underline decoration-dotted">LOGOUT</button>
               </div>
 
-              {/* Right: Search & Edit */}
-              <div className="w-full md:w-7/12 flex flex-col gap-4">
-                 <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="新しい名前を入力..."
-                      className="flex-1 px-4 py-3 rounded-xl bg-[#1a1033]/60 border border-[#ffd700]/30 text-[#e6e6fa] focus:border-[#ff3366] focus:outline-none transition-all"
-                      value={inputName} 
-                      onChange={(e) => setInputName(e.target.value)} 
-                    />
-                    <button onClick={handleUpdateName} disabled={isActionLoading || !inputName.trim()} className={`px-6 py-3 rounded-xl font-bold text-sm transition-all ${isActionLoading || !inputName.trim() ? 'bg-[#1a1033] text-gray-500' : 'bg-gradient-to-r from-[#ff3366] to-[#ffd700] text-[#1a1033] hover:shadow-[0_0_15px_#ff3366]'}`}>
-                      更新
-                    </button>
-                 </div>
-
-                 <div className="relative flex-1">
-                    <input type="text" placeholder="クルーメイトを検索..." className="w-full h-full px-5 py-4 rounded-xl bg-[#1a1033]/60 text-[#e6e6fa] placeholder-[#e6e6fa]/30 text-sm focus:outline-none border border-[#ffd700]/20 focus:border-[#ffd700]/80 transition-all backdrop-blur-md" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
-                    <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[#ffd700]/50">🔍</span>
+              {/* Right: Search Only (PC版ではここに検索のみ配置) */}
+              <div className="w-full md:w-7/12 flex flex-col justify-center">
+                 <div className="relative w-full h-full bg-[#1a1033]/60 rounded-2xl border border-[#ffd700]/30 p-6 flex flex-col justify-center">
+                    <h3 className="text-[#ffd700] font-bold text-sm tracking-[0.2em] mb-4 flex items-center gap-2">
+                      <span className="text-lg">🔍</span> SEARCH CREWMATES
+                    </h3>
+                    <div className="relative">
+                      <input type="text" placeholder="クルーメイトを検索..." className="w-full px-5 py-4 rounded-xl bg-[#0a0e1a]/50 text-[#e6e6fa] placeholder-[#e6e6fa]/30 text-sm focus:outline-none border border-[#ffd700]/20 focus:border-[#ffd700]/80 transition-all backdrop-blur-md" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+                      <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[#ffd700]/50">⚡</span>
+                    </div>
                  </div>
               </div>
             </div>
 
-            {/* User List Grid (PC: 3 cols, Mobile: 1 col) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 pb-4">
               {filteredMembers.length === 0 ? <p className="col-span-full text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">クルーメイトが見つかりません</p> : 
                 filteredMembers.map((m) => <UserCard key={m.id} profile={m} />)
