@@ -13,12 +13,13 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // ==========================================
 // 📝 型定義
 // ==========================================
-type Profile = {
+// Viewから取得するデータ型に統一
+type CrewStats = {
   id: string;
   display_name: string;
   avatar_url?: string;
-  last_received_at?: string;
   received_count: number;
+  last_received_at?: string;
 };
 
 type RankTitle = {
@@ -67,29 +68,10 @@ const StarBackground = memo(() => {
   }, []);
 
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1] bg-[#050510]">
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-[#050510]">
       <style jsx>{`
         @keyframes animStar { from { transform: translateY(0px); } to { transform: translateY(-2000px); } }
-        @keyframes shooting {
-          0% { transform: translateX(0) translateY(0) rotate(315deg); opacity: 1; }
-          70% { opacity: 1; }
-          100% { transform: translateX(-1000px) translateY(1000px) rotate(315deg); opacity: 0; }
-        }
         .star-layer { position: absolute; left: 0; top: 0; background: transparent; width: 1px; height: 1px; }
-        .shooting-star {
-          position: absolute; top: 0; right: 0; width: 4px; height: 4px;
-          background: #fff; border-radius: 50%;
-          box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1), 0 0 0 8px rgba(255, 255, 255, 0.1), 0 0 20px rgba(255, 255, 255, 1);
-          animation: shooting 7s linear infinite; opacity: 0;
-        }
-        .shooting-star::before {
-          content: ''; position: absolute; top: 50%; transform: translateY(-50%);
-          width: 300px; height: 1px; background: linear-gradient(90deg, #fff, transparent);
-        }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(26, 16, 51, 0.5); border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 215, 0, 0.3); border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 215, 0, 0.6); }
       `}</style>
       
       {starsSmall && (
@@ -98,8 +80,6 @@ const StarBackground = memo(() => {
           <div className="star-layer" style={{ boxShadow: starsMedium, animation: 'animStar 100s linear infinite' }} />
         </>
       )}
-      <div className="shooting-star" style={{ top: '10%', right: '10%', animationDelay: '2s' }}></div>
-      <div className="shooting-star" style={{ top: '30%', right: '5%', animationDelay: '5s' }}></div>
     </div>
   );
 });
@@ -165,7 +145,7 @@ const ActivityPanel = memo(({ isOpen, onClose, logs }: { isOpen: boolean, onClos
 ActivityPanel.displayName = 'ActivityPanel';
 
 // ==========================================
-// 🎨 UIパーツ (外出しして安定化)
+// 🎨 UIパーツ
 // ==========================================
 const RankBadge = memo(({ index }: { index: number }) => {
   const styles = [
@@ -187,6 +167,7 @@ const EmptyCard = memo(({ index }: { index: number }) => (
 ));
 EmptyCard.displayName = 'EmptyCard';
 
+// 🆕 スケルトン（読み込み中の枠）
 const SkeletonCard = memo(() => (
   <div className="relative flex items-center justify-between p-4 mb-3 rounded-2xl border border-white/5 bg-[#1a1033]/30 h-[96px] animate-pulse">
      <div className="flex items-center gap-4 w-full">
@@ -201,9 +182,8 @@ const SkeletonCard = memo(() => (
 ));
 SkeletonCard.displayName = 'SkeletonCard';
 
-// 🛠️ 修正: UserCardを外出し。Propsを受け取る形に変更
 interface UserCardProps {
-  profile: Profile;
+  profile: CrewStats; // 🆕 型を変更
   index?: number;
   isRanking?: boolean;
   isSelected?: boolean;
@@ -309,16 +289,20 @@ export default function CosmicChocolatApp() {
 // ==========================================
 function GameContent({ session }: { session: any }) {
   const user = session?.user ?? null;
-  const [rankingList, setRankingList] = useState<Profile[]>([]);
-  const [isRankingLoading, setIsRankingLoading] = useState(true);
-  const [totalChocolates, setTotalChocolates] = useState<number>(0);
   
+  // 🆕 データ型をCrewStatsに変更
+  const [rankingList, setRankingList] = useState<CrewStats[]>([]);
+  const [memberList, setMemberList] = useState<CrewStats[]>([]);
+  
+  const [totalChocolates, setTotalChocolates] = useState<number>(0);
+  const [isRankingLoading, setIsRankingLoading] = useState(true);
+  const [isMemberLoading, setIsMemberLoading] = useState(true); // 🆕 メンバーリスト用ローディング
+
   const [myProfileName, setMyProfileName] = useState(''); 
   const [inputName, setInputName] = useState(''); 
   const [myAvatarUrl, setMyAvatarUrl] = useState('');
   const [isEditing, setIsEditing] = useState(false); 
 
-  const [memberList, setMemberList] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [searchText, setSearchText] = useState('');
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -333,7 +317,7 @@ function GameContent({ session }: { session: any }) {
   const [isLogOpen, setIsLogOpen] = useState(false);
 
   // ----------------------------------------
-  // 🔄 データ取得
+  // 🔄 データ取得 (超高速化)
   // ----------------------------------------
   const fetchConfig = useCallback(async () => {
     const { data } = await supabase.from('system_settings').select('*');
@@ -349,103 +333,75 @@ function GameContent({ session }: { session: any }) {
     if (isMounted.current && data) setActivityLogs(data);
   }, []);
 
-  const fetchRanking = useCallback(async () => {
-    setIsRankingLoading(true);
-    const { data: sumData } = await supabase.from('chocolates').select('quantity');
-    const total = sumData?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0;
-    if (isMounted.current) setTotalChocolates(total);
-
-    const { data: rankingData } = await supabase.from('galaxy_ranking').select('*');
-    
-    if (isMounted.current && rankingData) {
-       const rankedIds = rankingData.map(r => r.id);
-       
-       if (rankedIds.length > 0) {
-         const { data: profiles } = await supabase.from('profiles').select('id, avatar_url').in('id', rankedIds);
-         const merged = rankingData.map(rank => ({
-           ...rank,
-           avatar_url: profiles?.find(p => p.id === rank.id)?.avatar_url
-         }));
-         setRankingList(merged);
-       } else {
-         setRankingList([]);
-       }
-       setIsRankingLoading(false);
-    }
-  }, []);
-
-  const fetchUserData = useCallback(async (skipNameUpdate = false) => {
+  // 🚀 DBビュー(view_crew_stats)から一撃で取得
+  const fetchData = useCallback(async (skipNameUpdate = false) => {
     if (!user) return;
-    
-    let name = user.user_metadata.full_name || 'クルー';
-    let avatar = user.user_metadata.avatar_url || 'https://www.gravatar.com/avatar?d=mp';
+    setIsMemberLoading(true);
 
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
-    if (profile) { 
-      name = profile.display_name; 
-      if (profile.avatar_url) avatar = profile.avatar_url;
-      else if (user.user_metadata.avatar_url) {
-         await supabase.from('profiles').update({ avatar_url: user.user_metadata.avatar_url }).eq('id', user.id);
-      }
-    } else { 
-      await supabase.from('profiles').insert({ id: user.id, display_name: name, avatar_url: avatar }); 
+    // 1. 自分の名前とアバター確保
+    const { data: me } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+    let currentName = me?.display_name || user.user_metadata.full_name || 'クルー';
+    let currentAvatar = me?.avatar_url || user.user_metadata.avatar_url;
+
+    if (!me) {
+       await supabase.from('profiles').insert({ id: user.id, display_name: currentName, avatar_url: currentAvatar });
+    } else if (!me.avatar_url && currentAvatar) {
+       await supabase.from('profiles').update({ avatar_url: currentAvatar }).eq('id', user.id);
     }
-    
+
     if (isMounted.current) {
-        if (!skipNameUpdate) {
-          setMyProfileName(name);
-          setInputName(name); 
-        }
-        setMyAvatarUrl(avatar);
-    }
-
-    const [profilesRes, historyRes, ranksRes] = await Promise.all([
-      supabase.from('profiles').select('*').neq('id', user.id),
-      supabase.from('chocolates').select('receiver_id, created_at, quantity').eq('sender_id', user.id),
-      supabase.from('galaxy_ranking').select('*')
-    ]);
-
-    const profiles = profilesRes.data;
-    const myHistory = historyRes.data;
-    const ranks = ranksRes.data;
-
-    const totalSent = myHistory?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0;
-    if (isMounted.current) setMyTotalSent(totalSent);
-    
-    if (appConfig.rank_titles) {
-      const titles: RankTitle[] = appConfig.rank_titles;
-      const currentTitle = titles.sort((a, b) => b.count - a.count).find(t => totalSent >= t.count);
-      if (currentTitle && isMounted.current) setMyRankTitle(currentTitle.title);
-    }
-
-    const countMap: Record<string, number> = {};
-    ranks?.forEach((r: any) => countMap[r.id] = r.received_count);
-    const historyMap = new Map();
-    myHistory?.forEach((h: any) => {
-      if (!historyMap.has(h.receiver_id) || new Date(historyMap.get(h.receiver_id)) < new Date(h.created_at)) {
-        historyMap.set(h.receiver_id, h.created_at);
+      if (!skipNameUpdate) {
+        setMyProfileName(currentName);
+        setInputName(currentName);
       }
-    });
-
-    if (profiles) {
-      const merged = profiles.map(p => ({
-        ...p,
-        received_count: countMap[p.id] || 0,
-        last_received_at: historyMap.get(p.id) || null
-      }));
-      merged.sort((a, b) => b.received_count - a.received_count);
-      if (isMounted.current) setMemberList(merged);
+      setMyAvatarUrl(currentAvatar || 'https://www.gravatar.com/avatar?d=mp');
     }
-  }, [user, appConfig]); 
+
+    // 2. 【爆速】集計済みビューから全データを取得
+    // view_crew_stats は id, display_name, avatar_url, received_count, last_received_at を持っている
+    const { data: allStats, error } = await supabase
+      .from('view_crew_stats')
+      .select('*')
+      .order('received_count', { ascending: false });
+
+    if (error) { console.error(error); return; }
+    if (!allStats) return;
+
+    // 3. データを振り分け
+    // 自分以外のリスト (検索用)
+    const members = allStats.filter((p: any) => p.id !== user.id);
+    // ランキング (Top 10)
+    const ranking = allStats.slice(0, 10);
+    // 総チョコ数 (クライアント側で足し合わせても数が少ないので高速)
+    const total = allStats.reduce((acc: number, curr: any) => acc + (curr.received_count || 0), 0);
+
+    // 4. 自分の送信履歴だけは個別に取る必要がある（ランク称号のため）
+    const { data: mySent } = await supabase.from('chocolates').select('quantity').eq('sender_id', user.id);
+    const totalSent = mySent?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0;
+
+    if (isMounted.current) {
+      setMemberList(members);
+      setRankingList(ranking);
+      setTotalChocolates(total);
+      setMyTotalSent(totalSent);
+      setIsRankingLoading(false);
+      setIsMemberLoading(false);
+
+      if (appConfig.rank_titles) {
+        const titles: RankTitle[] = appConfig.rank_titles;
+        const currentTitle = titles.sort((a, b) => b.count - a.count).find(t => totalSent >= t.count);
+        if (currentTitle) setMyRankTitle(currentTitle.title);
+      }
+    }
+  }, [user, appConfig]);
 
   useEffect(() => {
     isMounted.current = true;
     fetchConfig(); 
-    fetchRanking(); 
     fetchLogs(); 
-    if (user) fetchUserData();
+    if (user) fetchData();
     return () => { isMounted.current = false; };
-  }, [user, fetchConfig, fetchLogs, fetchRanking, fetchUserData]);
+  }, [user, fetchConfig, fetchLogs, fetchData]);
 
   // ----------------------------------------
   // 🎮 アクション
@@ -458,9 +414,6 @@ function GameContent({ session }: { session: any }) {
   const handleClickUser = useCallback((targetId: string) => {
     if (!user) return alert("ログインしてください");
     if (targetId === user.id) return alert("自分には贈れません");
-    // ここで memberList を参照するとクロージャの問題が出るため、最新のmemberListを使うか、
-    // あるいはクリック時にIDだけ渡して、描画側で制御する。
-    // 今回は memberList が更新されるたびにこの関数も再生成されるのでOK。
     const detailInfo = memberList.find(m => m.id === targetId);
     if (detailInfo && isCooldown(detailInfo.last_received_at)) { return alert("15分休憩しましょう！"); }
     
@@ -495,8 +448,8 @@ function GameContent({ session }: { session: any }) {
     }));
     await supabase.from('chocolates').insert(updates);
     
-    fetchRanking(); 
-    fetchUserData(true);
+    // 更新
+    fetchData(true);
   };
 
   const handleUpdateName = async () => {
@@ -516,9 +469,6 @@ function GameContent({ session }: { session: any }) {
     return 'text-xl';
   };
 
-  // ----------------------------------------
-  // 🎨 表示パーツ
-  // ----------------------------------------
   const filteredMembers = memberList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
 
   return (
@@ -536,7 +486,6 @@ function GameContent({ session }: { session: any }) {
 
       <StarBackground />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1a1033]/30 via-[#0a0e1a]/80 to-black z-0"></div>
-      
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-[#ffd700]/5 via-[#ff3366]/5 to-transparent z-0 pointer-events-none blur-3xl"></div>
 
       <div className="w-full max-w-4xl relative z-10 pb-20">
@@ -573,7 +522,7 @@ function GameContent({ session }: { session: any }) {
           <div className="animate-fade-in-up space-y-8 relative z-20 w-full max-w-4xl mx-auto mb-20">
             <div className="flex flex-col md:flex-row gap-6 items-stretch">
               
-              {/* Star Log (名刺サイズ) */}
+              {/* Star Log */}
               <div className="w-full md:w-5/12 bg-[#1a1033]/60 p-6 rounded-2xl border border-[#ffd700]/30 backdrop-blur-xl relative overflow-hidden flex flex-col justify-center min-h-[220px] shadow-[0_0_30px_rgba(26,16,51,0.5)]">
                  <div className="absolute inset-0 bg-gradient-to-br from-[#ffd700]/10 via-transparent to-[#ff3366]/10 opacity-50 pointer-events-none"></div>
                  
@@ -585,7 +534,6 @@ function GameContent({ session }: { session: any }) {
                    <div className="flex-1">
                      <p className="text-[10px] text-[#e6e6fa]/60 uppercase tracking-widest mb-1">CREW NAME</p>
                      
-                     {/* 🆕 名前編集エリア */}
                      <div className={`flex items-center gap-2 rounded-xl p-1.5 transition-colors border ${isEditing ? 'bg-black/40 border-[#ff3366]/50' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
                         {isEditing ? (
                           <input 
@@ -611,7 +559,6 @@ function GameContent({ session }: { session: any }) {
                  </div>
 
                  <div className="relative z-10 border-t border-[#ffd700]/20 pt-4 flex justify-between items-end">
-                   {/* 🛠️ 修正: ランクを左下に配置 */}
                    <div>
                      <p className="text-[10px] text-[#e6e6fa]/60 uppercase tracking-widest mb-1">RANK</p>
                      <p className="text-sm font-bold text-[#ffd700] bg-[#ffd700]/10 px-2 py-1 rounded border border-[#ffd700]/30">{myRankTitle}</p>
@@ -639,7 +586,11 @@ function GameContent({ session }: { session: any }) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 pb-4">
-              {filteredMembers.length === 0 ? <p className="col-span-full text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">クルーメイトが見つかりません</p> : 
+              {isMemberLoading ? (
+                Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={`skel-mem-${i}`} />)
+              ) : filteredMembers.length === 0 ? (
+                <p className="col-span-full text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">クルーメイトが見つかりません</p>
+              ) : (
                 filteredMembers.map((m) => (
                   <UserCard 
                     key={m.id} 
@@ -650,7 +601,7 @@ function GameContent({ session }: { session: any }) {
                     onSelect={handleClickUser}
                   />
                 ))
-              }
+              )}
             </div>
 
             <div className="fixed bottom-6 left-0 right-0 px-6 z-50 pointer-events-none">
