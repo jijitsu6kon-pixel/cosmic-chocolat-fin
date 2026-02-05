@@ -37,7 +37,7 @@ type ActivityLog = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント (安定版)
+// 🌠 星空生成コンポーネント (デザイン復旧版)
 // ==========================================
 const StarBackground = () => {
   const [starsSmall, setStarsSmall] = useState('');
@@ -67,8 +67,8 @@ const StarBackground = () => {
   }, []);
 
   return (
-    // 背景色を指定せず、z-indexをマイナスに
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
+    // 🛠️ 修正: z-indexを最背面に固定し、クリックを阻害しないようにする
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
       <style jsx>{`
         @keyframes animStar { from { transform: translateY(0px); } to { transform: translateY(-2000px); } }
         @keyframes shooting {
@@ -181,7 +181,8 @@ export default function CosmicChocolatApp() {
 
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen text-[#e6e6fa] flex items-center justify-center overflow-hidden relative">
+      // 🛠️ 修正: 背景色をしっかり指定し、白浮きを防止
+      <div className="min-h-screen bg-[#050510] flex items-center justify-center overflow-hidden relative">
         <StarBackground />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a1033]/40 via-[#0a0e1a]/60 to-black/80 z-0"></div>
         <div className="text-center relative z-10">
@@ -203,9 +204,8 @@ function GameContent({ session }: { session: any }) {
   const [rankingList, setRankingList] = useState<Profile[]>([]);
   const [totalChocolates, setTotalChocolates] = useState<number>(0);
   
-  // 🛠️ 修正: 表示用と入力用の名前Stateを分離
-  const [myProfileName, setMyProfileName] = useState(''); // 表示用(DB同期)
-  const [inputName, setInputName] = useState(''); // 入力用(ローカルのみ)
+  const [myProfileName, setMyProfileName] = useState(''); 
+  const [inputName, setInputName] = useState(''); 
 
   const [memberList, setMemberList] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
@@ -269,7 +269,6 @@ function GameContent({ session }: { session: any }) {
       await supabase.from('profiles').insert({ id: user.id, display_name: name, avatar_url: avatar }); 
     }
     
-    // 🛠️ 修正: DBの名前は「表示用State (myProfileName)」にのみ入れる。入力欄(inputName)は触らない。
     if (isMounted.current) setMyProfileName(name);
 
     const { data: profiles } = await supabase.from('profiles').select('*').neq('id', user.id);
@@ -305,6 +304,7 @@ function GameContent({ session }: { session: any }) {
     }
   }, [user, appConfig]); 
 
+  // 🛠️ 修正: リアルタイム監視(channel)を完全削除。初回ロードのみ行う。
   useEffect(() => {
     isMounted.current = true;
     fetchConfig(); 
@@ -312,17 +312,7 @@ function GameContent({ session }: { session: any }) {
     fetchLogs(); 
     if (user) fetchUserData();
     
-    const channel = supabase.channel('realtime')
-      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
-        fetchRanking(); 
-        fetchLogs(); 
-        if (user) fetchUserData();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, () => {
-        fetchConfig(); 
-      })
-      .subscribe();
-    return () => { isMounted.current = false; supabase.removeChannel(channel); };
+    return () => { isMounted.current = false; };
   }, [user, fetchConfig, fetchLogs, fetchRanking, fetchUserData]);
 
   // ----------------------------------------
@@ -369,21 +359,17 @@ function GameContent({ session }: { session: any }) {
     }));
     await supabase.from('chocolates').insert(updates);
     
+    // 🛠️ 修正: 送信時のみデータを再取得する（手動更新）
     fetchRanking(); 
     fetchUserData();
   };
 
   const handleUpdateName = async () => {
-    // 🛠️ 修正: 入力欄(inputName)が空なら何もしない
     if (!user || !inputName.trim()) return;
-    
     setIsActionLoading(true);
-    // 🛠️ 修正: inputNameの内容でDBを更新
     await supabase.from('profiles').update({ display_name: inputName }).eq('id', user.id);
-    
-    // 🛠️ 修正: 送信後は入力欄をクリアする
+    setMyProfileName(inputName);
     setInputName('');
-    
     setTimeout(() => setIsActionLoading(false), 500);
   };
   const signIn = () => supabase.auth.signInWithOAuth({ provider: 'discord', options: { queryParams: { prompt: 'consent' } } });
@@ -475,7 +461,8 @@ function GameContent({ session }: { session: any }) {
   };
 
   return (
-    <main className="min-h-screen text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
+    // 🛠️ 修正: デザイン復旧。濃い背景色を指定し、白浮きを防止
+    <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
       <RocketLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
 
@@ -509,7 +496,7 @@ function GameContent({ session }: { session: any }) {
           </div>
         </div>
 
-        {/* 🔄 ログイン/操作エリア (PCでもスマホでもランキングより先に表示) */}
+        {/* 🔄 ログイン/操作エリア */}
         {!user ? (
           <div className="text-center px-4 pb-12 animate-fade-in-up relative z-20">
             <p className="mb-10 text-base text-[#e6e6fa]/80 leading-8 font-serif italic drop-shadow-md">
@@ -544,7 +531,6 @@ function GameContent({ session }: { session: any }) {
               </div>
 
               <div className="flex justify-between items-center mb-4 relative z-10">
-                {/* 🛠️ 修正: 現在のクルー名を表示専用としてここに配置 */}
                 <div className="flex flex-col">
                   <label className="text-[10px] text-[#ffd700] uppercase tracking-wider font-bold flex items-center gap-2">
                     <span className="inline-block w-2 h-2 bg-[#ffd700] rounded-full animate-pulse"></span>
@@ -555,7 +541,6 @@ function GameContent({ session }: { session: any }) {
                 <button onClick={signOut} className="text-[10px] text-[#e6e6fa]/60 hover:text-[#ff3366] transition-colors underline decoration-dotted">ログアウト</button>
               </div>
               
-              {/* 🛠️ 修正: 入力欄は「変更用」として独立。DBと同期しないので勝手に消えない */}
               <div className="flex gap-3 items-center relative z-10">
                 <input 
                   type="text" 
@@ -601,7 +586,7 @@ function GameContent({ session }: { session: any }) {
           </div>
         )}
 
-        {/* 🔄 配置変更: ランキングを後ろへ */}
+        {/* 🔄 ランキングエリア */}
         <div className="mb-12 animate-fade-in-up relative">
           <div className="absolute inset-0 bg-gradient-to-b from-[#ffd700]/5 to-transparent blur-xl -z-10 rounded-full"></div>
           
