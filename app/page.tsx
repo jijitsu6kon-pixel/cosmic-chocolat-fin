@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { useEffect, useState, useRef, useCallback, memo, useMemo } from 'react';
+import { useRouter } from 'next/navigation'; // 🆕 ルーターをインポート
 
 // ==========================================
 // ⚙️ 設定
@@ -342,6 +343,7 @@ export default function CosmicChocolatApp() {
 // 🎮 ゲーム本体コンポーネント
 // ==========================================
 function GameContent({ session }: { session: any }) {
+  const router = useRouter(); // 🆕 ルーターの使用
   const user = session?.user ?? null;
   
   const [rankingList, setRankingList] = useState<CrewStats[]>([]);
@@ -407,12 +409,11 @@ function GameContent({ session }: { session: any }) {
     let currentAvatar = me?.avatar_url || user.user_metadata.avatar_url;
 
     if (!me) {
-       // 💥 ここで insert が失敗（外部キーエラー等）したら、ユーザーが存在しない＝BAN/リセットされたとみなす
        const { error: insertError } = await supabase.from('profiles').insert({ id: user.id, display_name: currentName, avatar_url: currentAvatar });
        if (insertError) {
          console.error("Profile creation failed (User deleted?):", insertError);
          await supabase.auth.signOut();
-         window.location.reload();
+         router.refresh(); // 🆕 安全なリロード
          return;
        }
     } else if (!me.avatar_url && currentAvatar) {
@@ -453,7 +454,7 @@ function GameContent({ session }: { session: any }) {
 
       setMyRankTitle(getRankTitle(totalSent));
     }
-  }, [user, appConfig, getRankTitle]);
+  }, [user, appConfig, getRankTitle, router]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -473,11 +474,11 @@ function GameContent({ session }: { session: any }) {
       if (error) {
         console.warn("Survival check failed. Forcing logout.");
         await supabase.auth.signOut();
-        window.location.reload();
+        router.refresh(); // 🆕 クラッシュ回避のため router.refresh() を使用
       }
-    }, 60000); // 🛠️ 60秒（1分）に変更
+    }, 60000); // 60秒
     return () => clearInterval(survivalCheck);
-  }, [user]);
+  }, [user, router]);
 
   // ----------------------------------------
   // 🎮 アクション
@@ -535,7 +536,12 @@ function GameContent({ session }: { session: any }) {
     setTimeout(() => setIsActionLoading(false), 500);
   };
   const signIn = () => supabase.auth.signInWithOAuth({ provider: 'discord', options: { queryParams: { prompt: 'consent' } } });
-  const signOut = async () => { await supabase.auth.signOut(); };
+  
+  // 🆕 修正されたログアウト関数
+  const signOut = async () => { 
+    await supabase.auth.signOut();
+    router.refresh(); // 画面を更新してログイン画面へ
+  };
 
   const getNameSize = (name: string) => {
     if (name.length > 20) return 'text-xs';
