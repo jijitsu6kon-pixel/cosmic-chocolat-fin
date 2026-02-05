@@ -144,7 +144,7 @@ const ActivityPanel = memo(({ isOpen, onClose, logs }: { isOpen: boolean, onClos
 ActivityPanel.displayName = 'ActivityPanel';
 
 // ==========================================
-// 👥 参加者リスト パネル (🆕 追加)
+// 👥 参加者リスト パネル
 // ==========================================
 const MemberPanel = memo(({ isOpen, onClose, members, getRankTitle }: { isOpen: boolean, onClose: () => void, members: CrewStats[], getRankTitle: (count: number) => string }) => {
   return (
@@ -368,8 +368,6 @@ function GameContent({ session }: { session: any }) {
   
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isLogOpen, setIsLogOpen] = useState(false);
-  
-  // 🆕 参加者リスト開閉状態
   const [isMemberOpen, setIsMemberOpen] = useState(false);
 
   // ----------------------------------------
@@ -409,7 +407,14 @@ function GameContent({ session }: { session: any }) {
     let currentAvatar = me?.avatar_url || user.user_metadata.avatar_url;
 
     if (!me) {
-       await supabase.from('profiles').insert({ id: user.id, display_name: currentName, avatar_url: currentAvatar });
+       // 💥 ここで insert が失敗（外部キーエラー等）したら、ユーザーが存在しない＝BAN/リセットされたとみなす
+       const { error: insertError } = await supabase.from('profiles').insert({ id: user.id, display_name: currentName, avatar_url: currentAvatar });
+       if (insertError) {
+         console.error("Profile creation failed (User deleted?):", insertError);
+         await supabase.auth.signOut();
+         window.location.reload();
+         return;
+       }
     } else if (!me.avatar_url && currentAvatar) {
        await supabase.from('profiles').update({ avatar_url: currentAvatar }).eq('id', user.id);
     }
@@ -459,6 +464,20 @@ function GameContent({ session }: { session: any }) {
     }
     return () => { isMounted.current = false; };
   }, [user]); 
+
+  // 🆕 生存確認（60秒ごとにチェック）
+  useEffect(() => {
+    if (!user) return;
+    const survivalCheck = setInterval(async () => {
+      const { error } = await supabase.auth.getUser();
+      if (error) {
+        console.warn("Survival check failed. Forcing logout.");
+        await supabase.auth.signOut();
+        window.location.reload();
+      }
+    }, 60000); // 🛠️ 60秒（1分）に変更
+    return () => clearInterval(survivalCheck);
+  }, [user]);
 
   // ----------------------------------------
   // 🎮 アクション
@@ -533,16 +552,14 @@ function GameContent({ session }: { session: any }) {
       <RocketLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
       
-      {/* 🆕 参加者リストパネル */}
       <MemberPanel 
         isOpen={isMemberOpen} 
         onClose={() => setIsMemberOpen(false)} 
-        members={memberList} // 検索フィルタをかけない全員のリスト
+        members={memberList} 
         getRankTitle={getRankTitle}
       />
 
       <div className="fixed top-24 right-0 z-50 flex flex-col items-end gap-2">
-        {/* LOG BUTTON */}
         <button 
           onClick={() => setIsLogOpen(true)}
           className="bg-[#1a1033]/80 border-l border-t border-b border-[#ffd700]/30 text-[#ffd700] p-3 rounded-l-xl backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:bg-[#1a1033] hover:pl-5 transition-all duration-300 group"
@@ -551,7 +568,6 @@ function GameContent({ session }: { session: any }) {
           <span className="hidden group-hover:inline ml-2 text-xs font-bold tracking-widest">LOG</span>
         </button>
 
-        {/* 🆕 CREW LIST BUTTON */}
         <button 
           onClick={() => setIsMemberOpen(true)}
           className="bg-[#1a1033]/80 border-l border-t border-b border-[#ffd700]/30 text-[#e6e6fa] p-3 rounded-l-xl backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:bg-[#1a1033] hover:pl-5 transition-all duration-300 group"
