@@ -37,7 +37,7 @@ type ActivityLog = {
 };
 
 // ==========================================
-// 🌠 星空生成コンポーネント (修正版: z-index調整)
+// 🌠 星空生成コンポーネント (安定版)
 // ==========================================
 const StarBackground = () => {
   const [starsSmall, setStarsSmall] = useState('');
@@ -67,7 +67,7 @@ const StarBackground = () => {
   }, []);
 
   return (
-    // 🛠️ 修正: z-indexをマイナスにして、絶対にコンテンツの邪魔をしないように変更
+    // ⚠️ 背景色はここで指定。z-indexはマイナスのまま
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1] bg-[#050510]">
       <style jsx>{`
         @keyframes animStar { from { transform: translateY(0px); } to { transform: translateY(-2000px); } }
@@ -76,7 +76,6 @@ const StarBackground = () => {
           70% { opacity: 1; }
           100% { transform: translateX(-1000px) translateY(1000px) rotate(315deg); opacity: 0; }
         }
-        /* 🛠️ 修正: 幅と高さを1pxに戻し、巨大化による消失バグを防止 */
         .star-layer { position: absolute; left: 0; top: 0; background: transparent; width: 1px; height: 1px; }
         .shooting-star {
           position: absolute; top: 0; right: 0; width: 4px; height: 4px;
@@ -251,7 +250,8 @@ function GameContent({ session }: { session: any }) {
     }
   }, []);
 
-  const fetchUserData = useCallback(async () => {
+  // 🛠️ 修正: skipNameUpdateフラグを追加し、リアルタイム更新時は名前を上書きしないように変更
+  const fetchUserData = useCallback(async (skipNameUpdate = false) => {
     if (!user) return;
     let name = user.user_metadata.full_name || 'クルー';
     let avatar = user.user_metadata.avatar_url || '';
@@ -266,7 +266,8 @@ function GameContent({ session }: { session: any }) {
       await supabase.from('profiles').insert({ id: user.id, display_name: name, avatar_url: avatar }); 
     }
     
-    if (isMounted.current) setMyProfileName(name);
+    // 🛠️ 入力中の名前を守るため、スキップフラグがfalseの時だけstateを更新
+    if (isMounted.current && !skipNameUpdate) setMyProfileName(name);
 
     const { data: profiles } = await supabase.from('profiles').select('*').neq('id', user.id);
     const { data: myHistory } = await supabase.from('chocolates').select('receiver_id, created_at, quantity').eq('sender_id', user.id);
@@ -306,11 +307,19 @@ function GameContent({ session }: { session: any }) {
     fetchConfig(); 
     fetchRanking(); 
     fetchLogs(); 
-    if (user) fetchUserData();
+    // 🛠️ 初回ロード: 名前も取得してセットする (false)
+    if (user) fetchUserData(false);
     
     const channel = supabase.channel('realtime')
-      .on('postgres_changes', { event: '*', schema: 'public' }, () => { fetchRanking(); fetchLogs(); if (user) fetchUserData(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, () => { fetchConfig(); })
+      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+        fetchRanking(); 
+        fetchLogs(); 
+        // 🛠️ リアルタイム更新: 名前は上書きしない (true)
+        if (user) fetchUserData(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, () => {
+        fetchConfig(); 
+      })
       .subscribe();
     return () => { isMounted.current = false; supabase.removeChannel(channel); };
   }, [user, fetchConfig, fetchLogs, fetchRanking, fetchUserData]);
@@ -360,7 +369,8 @@ function GameContent({ session }: { session: any }) {
     await supabase.from('chocolates').insert(updates);
     
     fetchRanking(); 
-    fetchUserData();
+    // 送信直後は自分の情報もリフレッシュ (名前更新はしない)
+    fetchUserData(true);
   };
 
   const handleUpdateName = async () => {
@@ -404,7 +414,6 @@ function GameContent({ session }: { session: any }) {
 
     return (
       <div 
-        // 🛠️ 修正: 条件付きでクリックを無効にするのではなく、常にハンドラを呼んでアラートを出すように変更
         onClick={() => handleClickUser(profile.id)}
         className={`
           relative flex items-center justify-between p-4 mb-3 rounded-2xl transition-all duration-500 border select-none backdrop-blur-md overflow-hidden group h-[104px]
@@ -459,7 +468,8 @@ function GameContent({ session }: { session: any }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
+    // 🛠️ 修正: bg-[#050510]を削除し、星空が見えるようにする
+    <main className="min-h-screen text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
       <RocketLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
 
