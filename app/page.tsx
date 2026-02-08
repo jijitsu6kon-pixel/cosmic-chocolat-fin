@@ -92,24 +92,15 @@ const ShootingStarLayer = memo(() => {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-[1]">
       <style jsx>{`
-        /* 頻度調整の仕組み:
-           アニメーション全体の時間を長く設定し(12000ms = 12秒)、
-           そのうち最初の25%(3秒)だけ実際に星を流し、
-           残りの75%(9秒)は透明のまま待機させることで頻度を下げています。
-        */
-
-        /* 流れ星の尾（ピンクのグラデーション） */
+        /* 頻度調整: 12秒サイクル、最初の3秒だけ表示 */
         .shooting_star {
           position: absolute;
           height: 2px;
-          /* 青からピンクへ変更 */
           background: linear-gradient(-45deg, rgba(255, 51, 153, 1), rgba(255, 0, 100, 0));
           border-radius: 999px;
-          /* ピンクの光彩 */
           filter: drop-shadow(0 0 6px rgba(255, 51, 153, 1));
-          /* アニメーション時間を3000msから12000msへ延長 */
           animation: tail 12000ms ease-in-out infinite, shooting 12000ms ease-in-out infinite;
-          opacity: 0; /* 初期状態は非表示 */
+          opacity: 0;
         }
 
         /* 流れ星の先端（円形の核・ピンク） */
@@ -121,38 +112,32 @@ const ShootingStarLayer = memo(() => {
           width: 4px;
           height: 4px;
           border-radius: 50%;
-          /* ピンクの発光体 */
           background: rgba(255, 51, 153, 1);
           box-shadow: 0 0 4px rgba(255, 51, 153, 0.8), 0 0 8px rgba(255, 51, 153, 0.4);
-          /* 先端も小さくなるアニメーションを追加 */
           animation: shrinkHead 12000ms ease-in-out infinite;
         }
         
-        /* 尾の長さアニメーション (最初の25%で完結させる) */
         @keyframes tail {
           0% { width: 0; }
-          10% { width: 100px; } /* ピーク */
-          25% { width: 0; } /* 25%地点で消える */
-          100% { width: 0; } /* 残りは待機 */
+          10% { width: 100px; }
+          25% { width: 0; }
+          100% { width: 0; }
         }
 
-        /* 移動とフェードアウトのアニメーション (最初の25%で完結させる) */
         @keyframes shooting {
           0% { transform: translateX(0) translateY(0) rotateZ(45deg); opacity: 1; }
-          20% { opacity: 1; } /* 終盤まで表示 */
-          25% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; } /* 25%地点で完全に透明に */
-          100% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; } /* 残りは透明のまま待機 */
+          20% { opacity: 1; }
+          25% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; }
+          100% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; }
         }
 
-        /* 🆕 先端が小さくなるアニメーション */
         @keyframes shrinkHead {
           0% { transform: translateY(-50%) scale(1); }
-          15% { transform: translateY(-50%) scale(1); } /* 途中まで大きさキープ */
-          25% { transform: translateY(-50%) scale(0); } /* 25%地点でサイズ0に */
-          100% { transform: translateY(-50%) scale(0); } /* 残りはサイズ0で待機 */
+          15% { transform: translateY(-50%) scale(1); }
+          25% { transform: translateY(-50%) scale(0); }
+          100% { transform: translateY(-50%) scale(0); }
         }
 
-        /* 開始位置と遅延時間（12秒の中で分散させる） */
         .star-1 { top: -5%; left: 50%; animation-delay: 0ms; }
         .star-2 { top: 25%; left: 85%; animation-delay: 2400ms; }
         .star-3 { top: -15%; left: 15%; animation-delay: 4800ms; }
@@ -170,26 +155,113 @@ const ShootingStarLayer = memo(() => {
 ShootingStarLayer.displayName = 'ShootingStarLayer';
 
 // ==========================================
-// 🚀 ロケット演出レイヤー
+// 🎆 バレンタイン爆発演出レイヤー (🆕 新演出)
 // ==========================================
-const RocketLayer = memo(({ isActive, onComplete }: { isActive: boolean, onComplete: () => void }) => {
+const ValentineExplosionLayer = memo(({ isActive, onComplete }: { isActive: boolean, onComplete: () => void }) => {
+  const generateParticles = useCallback(() => {
+    const count = 50; 
+    return Array.from({ length: count }, (_, i) => {
+      const isRocket = Math.random() > 0.8; 
+      const emoji = isRocket ? '🚀' : '🍫';
+      const angle = Math.random() * 360; 
+      const distance = 300 + Math.random() * 500; 
+      const rotation = Math.random() * 720 - 360; 
+      const delay = Math.random() * 0.8; 
+      const scale = 0.5 + Math.random() * 1.5; 
+
+      return { id: i, emoji, angle, distance, rotation, delay, scale };
+    });
+  }, []);
+
+  const particles = useMemo(() => isActive ? generateParticles() : [], [isActive, generateParticles]);
+
   useEffect(() => {
     if (isActive) {
-      const timer = setTimeout(onComplete, 2000);
+      const timer = setTimeout(onComplete, 3500);
       return () => clearTimeout(timer);
     }
   }, [isActive, onComplete]);
+
   if (!isActive) return null;
+
   return (
-    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden flex items-end justify-center">
-      <style jsx>{` @keyframes flyUp { 0% { transform: translateY(100vh) scale(0.5); opacity: 1; } 50% { transform: translateY(-50vh) scale(1.2); } 100% { transform: translateY(-150vh) scale(0.5); opacity: 0; } } `}</style>
-      <div className="text-6xl animate-[flyUp_1.5s_ease-in_forwards] drop-shadow-[0_0_20px_rgba(255,51,102,0.8)]">🚀</div>
-      <div className="absolute text-4xl animate-[flyUp_1.8s_ease-in_forwards] left-[40%] drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]" style={{ animationDelay: '0.1s' }}>🍫</div>
-      <div className="absolute text-4xl animate-[flyUp_1.6s_ease-in_forwards] right-[40%] drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]" style={{ animationDelay: '0.2s' }}>🍫</div>
+    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden flex items-center justify-center">
+      <style jsx>{`
+        @keyframes popInCenter {
+          0% { transform: scale(0); opacity: 0; }
+          40% { transform: scale(1.1); opacity: 1; }
+          50% { transform: scale(1); }
+          90% { transform: scale(1); opacity: 1; }
+          100% { transform: scale(0.8); opacity: 0; }
+        }
+        
+        @keyframes explodeOut {
+          0% {
+            transform: translate(-50%, -50%) scale(0) rotate(0deg);
+            opacity: 1;
+          }
+          10% {
+            opacity: 1;
+          }
+          100% {
+            transform: translate(-50%, -50%) 
+                       rotate(var(--angle)) 
+                       translateY(calc(var(--distance) * -1px)) 
+                       rotate(var(--rotation)) 
+                       scale(var(--scale));
+            opacity: 0;
+          }
+        }
+
+        .center-image-container {
+          position: absolute;
+          width: min(90vw, 600px); 
+          height: auto;
+          aspect-ratio: 1 / 1;
+          animation: popInCenter 3s ease-in-out forwards;
+          z-index: 10;
+        }
+
+        .particle {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          font-size: 2rem;
+          --angle: 0deg;
+          --distance: 0;
+          --rotation: 0deg;
+          --scale: 1;
+          animation: explodeOut 3s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
+          filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+        }
+      `}</style>
+
+      {/* 中央のバレンタイン画像 */}
+      <div className="center-image-container">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/valentine_center.png" alt="Valentine Gift" className="w-full h-full object-contain drop-shadow-[0_0_30px_rgba(255,51,102,0.6)]" />
+      </div>
+
+      {/* 爆発する絵文字たち */}
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          className="particle"
+          style={{
+            '--angle': `${p.angle}deg`,
+            '--distance': `${p.distance}`,
+            '--rotation': `${p.rotation}deg`,
+            '--scale': `${p.scale}`,
+            animationDelay: `${p.delay}s`
+          } as React.CSSProperties}
+        >
+          {p.emoji}
+        </div>
+      ))}
     </div>
   );
 });
-RocketLayer.displayName = 'RocketLayer';
+ValentineExplosionLayer.displayName = 'ValentineExplosionLayer';
 
 // ==========================================
 // 📡 アクティビティログ パネル
@@ -639,7 +711,10 @@ function GameContent({ session }: { session: any }) {
 
   return (
     <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
-      <RocketLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
+      
+      {/* 🆕 ロケット演出を新しい爆発演出に置き換え */}
+      <ValentineExplosionLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
+      
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
       
       <MemberPanel 
