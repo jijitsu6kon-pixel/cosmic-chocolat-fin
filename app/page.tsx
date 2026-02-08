@@ -92,7 +92,6 @@ const ShootingStarLayer = memo(() => {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-[1]">
       <style jsx>{`
-        /* 頻度調整: 12秒サイクル、最初の3秒だけ表示 */
         .shooting_star {
           position: absolute;
           height: 2px;
@@ -102,8 +101,6 @@ const ShootingStarLayer = memo(() => {
           animation: tail 12000ms ease-in-out infinite, shooting 12000ms ease-in-out infinite;
           opacity: 0;
         }
-
-        /* 流れ星の先端（円形の核・ピンク） */
         .shooting_star::before {
           content: '';
           position: absolute;
@@ -116,28 +113,24 @@ const ShootingStarLayer = memo(() => {
           box-shadow: 0 0 4px rgba(255, 51, 153, 0.8), 0 0 8px rgba(255, 51, 153, 0.4);
           animation: shrinkHead 12000ms ease-in-out infinite;
         }
-        
         @keyframes tail {
           0% { width: 0; }
           10% { width: 100px; }
           25% { width: 0; }
           100% { width: 0; }
         }
-
         @keyframes shooting {
           0% { transform: translateX(0) translateY(0) rotateZ(45deg); opacity: 1; }
           20% { opacity: 1; }
           25% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; }
           100% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; }
         }
-
         @keyframes shrinkHead {
           0% { transform: translateY(-50%) scale(1); }
           15% { transform: translateY(-50%) scale(1); }
           25% { transform: translateY(-50%) scale(0); }
           100% { transform: translateY(-50%) scale(0); }
         }
-
         .star-1 { top: -5%; left: 50%; animation-delay: 0ms; }
         .star-2 { top: 25%; left: 85%; animation-delay: 2400ms; }
         .star-3 { top: -15%; left: 15%; animation-delay: 4800ms; }
@@ -155,21 +148,35 @@ const ShootingStarLayer = memo(() => {
 ShootingStarLayer.displayName = 'ShootingStarLayer';
 
 // ==========================================
-// 🎆 バレンタイン爆発演出レイヤー (🆕 新演出)
+// 🎆 バレンタイン打ち上げ花火演出レイヤー (🆕 下から発射＆ピカピカ)
 // ==========================================
-const ValentineExplosionLayer = memo(({ isActive, onComplete }: { isActive: boolean, onComplete: () => void }) => {
+const ValentineLaunchLayer = memo(({ isActive, onComplete }: { isActive: boolean, onComplete: () => void }) => {
   const generateParticles = useCallback(() => {
-    const count = 50; 
+    const count = 60; // パーティクル数増量
     return Array.from({ length: count }, (_, i) => {
-      const isRocket = Math.random() > 0.8; 
-      const emoji = isRocket ? '🚀' : '🍫';
-      const angle = Math.random() * 360; 
-      const distance = 300 + Math.random() * 500; 
-      const rotation = Math.random() * 720 - 360; 
-      const delay = Math.random() * 0.8; 
-      const scale = 0.5 + Math.random() * 1.5; 
+      // 絵文字の抽選（キラキラを追加）
+      const rand = Math.random();
+      let emoji = '🍫';
+      if (rand > 0.7) emoji = '🚀';
+      if (rand > 0.9) emoji = '✨'; // 10%の確率でキラキラ
 
-      return { id: i, emoji, angle, distance, rotation, delay, scale };
+      // 画面のどこから出るか（左端0% 〜 右端100%）
+      const startLeft = Math.random() * 100;
+      
+      // どのくらいの高さまで飛ぶか (画面の上の方 50%〜90%)
+      const targetTop = 10 + Math.random() * 40; 
+      
+      // 左右の揺れ幅
+      const wobble = (Math.random() - 0.5) * 50;
+
+      // サイズ
+      const scale = 0.8 + Math.random() * 1.5;
+      
+      // アニメーション速度（バラつきを持たせる）
+      const duration = 2 + Math.random() * 1.5; 
+      const delay = Math.random() * 1.0;
+
+      return { id: i, emoji, startLeft, targetTop, wobble, scale, duration, delay };
     });
   }, []);
 
@@ -177,7 +184,7 @@ const ValentineExplosionLayer = memo(({ isActive, onComplete }: { isActive: bool
 
   useEffect(() => {
     if (isActive) {
-      const timer = setTimeout(onComplete, 3500);
+      const timer = setTimeout(onComplete, 4000);
       return () => clearTimeout(timer);
     }
   }, [isActive, onComplete]);
@@ -185,73 +192,81 @@ const ValentineExplosionLayer = memo(({ isActive, onComplete }: { isActive: bool
   if (!isActive) return null;
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden flex items-center justify-center">
+    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
       <style jsx>{`
-        @keyframes popInCenter {
-          0% { transform: scale(0); opacity: 0; }
-          40% { transform: scale(1.1); opacity: 1; }
-          50% { transform: scale(1); }
-          90% { transform: scale(1); opacity: 1; }
-          100% { transform: scale(0.8); opacity: 0; }
+        /* 中央画像：下から浮き上がる */
+        @keyframes floatUpMain {
+          0% { transform: translate(-50%, 100vh) scale(0.5); opacity: 0; }
+          40% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+          60% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+          100% { transform: translate(-50%, -60%) scale(1.05); opacity: 0; }
         }
         
-        @keyframes explodeOut {
-          0% {
-            transform: translate(-50%, -50%) scale(0) rotate(0deg);
+        /* パーティクル：打ち上げ */
+        @keyframes launchUp {
+          0% { 
+            bottom: -50px;
+            transform: translateX(0) rotate(0deg) scale(0.5);
             opacity: 1;
           }
-          10% {
+          50% {
             opacity: 1;
           }
           100% {
-            transform: translate(-50%, -50%) 
-                       rotate(var(--angle)) 
-                       translateY(calc(var(--distance) * -1px)) 
-                       rotate(var(--rotation)) 
-                       scale(var(--scale));
+            bottom: var(--target-height);
+            transform: translateX(var(--wobble)) rotate(360deg) scale(var(--scale));
             opacity: 0;
           }
         }
 
+        /* ピカピカ点滅 */
+        @keyframes twinkle {
+          0%, 100% { filter: brightness(1) drop-shadow(0 0 5px rgba(255,215,0,0.5)); }
+          50% { filter: brightness(2) drop-shadow(0 0 20px rgba(255,51,153,1)); }
+        }
+
         .center-image-container {
           position: absolute;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
           width: min(90vw, 600px); 
           height: auto;
           aspect-ratio: 1 / 1;
-          animation: popInCenter 3s ease-in-out forwards;
+          animation: floatUpMain 4s ease-out forwards;
           z-index: 10;
         }
 
         .particle {
           position: absolute;
-          top: 50%;
-          left: 50%;
           font-size: 2rem;
-          --angle: 0deg;
-          --distance: 0;
-          --rotation: 0deg;
+          bottom: -50px;
+          --target-height: 80vh;
+          --wobble: 20px;
           --scale: 1;
-          animation: explodeOut 3s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
-          filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+          animation: 
+            launchUp var(--duration) ease-out forwards,
+            twinkle 0.5s ease-in-out infinite alternate; /* ピカピカ */
         }
       `}</style>
 
-      {/* 中央のバレンタイン画像 */}
+      {/* メイン画像：下から登場 */}
       <div className="center-image-container">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/valentine_center.png" alt="Valentine Gift" className="w-full h-full object-contain drop-shadow-[0_0_30px_rgba(255,51,102,0.6)]" />
+        <img src="/valentine_center.png" alt="Valentine Gift" className="w-full h-full object-contain drop-shadow-[0_0_50px_rgba(255,51,102,0.8)]" />
       </div>
 
-      {/* 爆発する絵文字たち */}
+      {/* 打ち上げパーティクル */}
       {particles.map((p) => (
         <div
           key={p.id}
           className="particle"
           style={{
-            '--angle': `${p.angle}deg`,
-            '--distance': `${p.distance}`,
-            '--rotation': `${p.rotation}deg`,
+            left: `${p.startLeft}%`,
+            '--target-height': `${100 - p.targetTop}vh`,
+            '--wobble': `${p.wobble}px`,
             '--scale': `${p.scale}`,
+            '--duration': `${p.duration}s`,
             animationDelay: `${p.delay}s`
           } as React.CSSProperties}
         >
@@ -261,7 +276,7 @@ const ValentineExplosionLayer = memo(({ isActive, onComplete }: { isActive: bool
     </div>
   );
 });
-ValentineExplosionLayer.displayName = 'ValentineExplosionLayer';
+ValentineLaunchLayer.displayName = 'ValentineLaunchLayer';
 
 // ==========================================
 // 📡 アクティビティログ パネル
@@ -399,9 +414,18 @@ const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isM
 
   const remainingMinutes = getRemainingMinutes();
 
+  const handleClick = () => {
+    if (isMe) return;
+    if (isCooldown) {
+      alert(`❄️ クールダウン中です！\nあと${remainingMinutes}分お待ちください`);
+      return;
+    }
+    onSelect(profile.id);
+  };
+
   return (
     <div 
-      onClick={() => onSelect(profile.id)}
+      onClick={handleClick} 
       className={`
         relative flex items-center justify-between p-3 mb-2 rounded-xl transition-all duration-200 border select-none overflow-hidden group
         ${isRanking ? 'h-[96px] mb-3 p-4 rounded-2xl' : 'h-[80px]'}
@@ -530,7 +554,7 @@ function GameContent({ session }: { session: any }) {
   const [isMemberOpen, setIsMemberOpen] = useState(false);
 
   // ----------------------------------------
-  // 🔄 データ取得 (イベント駆動型)
+  // 🔄 データ取得
   // ----------------------------------------
   const fetchConfig = useCallback(async () => {
     const { data } = await supabase.from('system_settings').select('*');
@@ -555,7 +579,6 @@ function GameContent({ session }: { session: any }) {
 
   const fetchData = useCallback(async (isBackground = false) => {
     if (!user) return;
-    
     if (!isBackground) {
       setIsMemberLoading(true);
       setIsRankingLoading(true);
@@ -623,7 +646,7 @@ function GameContent({ session }: { session: any }) {
     return () => { isMounted.current = false; };
   }, [user]); 
 
-  // 🆕 生存確認（60秒ごとにチェック）
+  // 🆕 生存確認
   useEffect(() => {
     if (!user) return;
     const survivalCheck = setInterval(async () => {
@@ -633,7 +656,7 @@ function GameContent({ session }: { session: any }) {
         await supabase.auth.signOut();
         router.refresh(); 
       }
-    }, 60000); // 60秒
+    }, 60000); 
     return () => clearInterval(survivalCheck);
   }, [user, router]);
 
@@ -658,27 +681,39 @@ function GameContent({ session }: { session: any }) {
 
   const handleSend = async () => {
     if (!user || selectedUsers.size === 0) return;
+    
+    // 1. 演出開始
     setIsRocketFlying(true); 
 
     const meteorConfig = appConfig.lucky_meteor_config || { enabled: false, probability: 0, multiplier: 1 };
     const isLucky = meteorConfig.enabled && Math.random() < meteorConfig.probability;
     const quantity = isLucky ? meteorConfig.multiplier : 1;
 
-    if (isLucky) {
-      setTimeout(() => alert(`☄️ LUCKY METEOR!!\n奇跡が起きました！\n${quantity}倍のチョコが降り注ぎます！`), 500);
-    } else {
-      setTimeout(() => alert(`💝 ${selectedUsers.size}人のクルーメイトにチョコを贈りました！`), 500);
-    }
-
     const targets = Array.from(selectedUsers);
-    setSelectedUsers(new Set()); 
+    setSelectedUsers(new Set()); // 選択解除
 
     const updates = targets.map(rid => ({ 
       sender_id: user.id, 
       receiver_id: rid,
       quantity: quantity 
     }));
-    await supabase.from('chocolates').insert(updates);
+
+    // 2. データベースへ送信
+    const { error } = await supabase.from('chocolates').insert(updates);
+
+    // 3. 結果判定
+    setTimeout(() => {
+        if (error) {
+            console.error("Send Error:", error);
+            alert("⚠️ エラー：送信できませんでした。\nクールダウン中か、通信エラーの可能性があります。");
+        } else {
+            if (isLucky) {
+                alert(`☄️ LUCKY METEOR!!\n奇跡が起きました！\n${quantity}倍のチョコが降り注ぎます！`);
+            } else {
+                alert(`💝 ${targets.length}人のクルーメイトにチョコを贈りました！`);
+            }
+        }
+    }, 500);
     
     fetchData(true);
   };
@@ -712,8 +747,8 @@ function GameContent({ session }: { session: any }) {
   return (
     <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
       
-      {/* 🆕 ロケット演出を新しい爆発演出に置き換え */}
-      <ValentineExplosionLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
+      {/* 🆕 打ち上げ花火＆激ピカ演出 */}
+      <ValentineLaunchLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
       
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
       
