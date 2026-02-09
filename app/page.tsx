@@ -113,9 +113,24 @@ const ShootingStarLayer = memo(() => {
           box-shadow: 0 0 4px rgba(255, 51, 153, 0.8), 0 0 8px rgba(255, 51, 153, 0.4);
           animation: shrinkHead 12000ms ease-in-out infinite;
         }
-        @keyframes tail { 0% { width: 0; } 10% { width: 100px; } 25% { width: 0; } 100% { width: 0; } }
-        @keyframes shooting { 0% { transform: translateX(0) translateY(0) rotateZ(45deg); opacity: 1; } 20% { opacity: 1; } 25% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; } 100% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; } }
-        @keyframes shrinkHead { 0% { transform: translateY(-50%) scale(1); } 15% { transform: translateY(-50%) scale(1); } 25% { transform: translateY(-50%) scale(0); } 100% { transform: translateY(-50%) scale(0); } }
+        @keyframes tail {
+          0% { width: 0; }
+          10% { width: 100px; }
+          25% { width: 0; }
+          100% { width: 0; }
+        }
+        @keyframes shooting {
+          0% { transform: translateX(0) translateY(0) rotateZ(45deg); opacity: 1; }
+          20% { opacity: 1; }
+          25% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; }
+          100% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; }
+        }
+        @keyframes shrinkHead {
+          0% { transform: translateY(-50%) scale(1); }
+          15% { transform: translateY(-50%) scale(1); }
+          25% { transform: translateY(-50%) scale(0); }
+          100% { transform: translateY(-50%) scale(0); }
+        }
         .star-1 { top: -5%; left: 50%; animation-delay: 0ms; }
         .star-2 { top: 25%; left: 85%; animation-delay: 2400ms; }
         .star-3 { top: -15%; left: 15%; animation-delay: 4800ms; }
@@ -133,7 +148,7 @@ const ShootingStarLayer = memo(() => {
 ShootingStarLayer.displayName = 'ShootingStarLayer';
 
 // ==========================================
-// 🎆 バレンタイン打ち上げ花火演出レイヤー (軽量化版)
+// 🎆 バレンタイン打ち上げ花火演出レイヤー (軽量化調整版)
 // ==========================================
 const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey, isLuckyMode }: { isActive: boolean, onComplete: () => void, runKey: number, isLuckyMode: boolean }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -483,12 +498,11 @@ function GameContent({ session }: { session: any }) {
   const [myRankTitle, setMyRankTitle] = useState('見習いクルー'); 
   const [appConfig, setAppConfig] = useState<any>({});
   
-  // 🛠️ リアルタイム監視用のstate
-  const [isEventEnded, setIsEventEnded] = useState(false);
-
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [isMemberOpen, setIsMemberOpen] = useState(false);
+
+  const isEventEnded = appConfig.event_config?.is_ended;
 
   // ----------------------------------------
   // 🔄 データ取得
@@ -498,41 +512,8 @@ function GameContent({ session }: { session: any }) {
     if (data) {
       const configMap: any = {};
       data.forEach(item => configMap[item.key] = item.value);
-      if (isMounted.current) {
-        setAppConfig(configMap);
-        // 初期状態のセット
-        if (configMap.event_config?.is_ended) {
-          setIsEventEnded(true);
-        }
-      }
+      if (isMounted.current) setAppConfig(configMap);
     }
-  }, []);
-
-  // 🛠️ リアルタイム監視 (Supabase Realtime)
-  useEffect(() => {
-    // チャンネル登録
-    const channel = supabase
-      .channel('system_settings_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'system_settings',
-          filter: 'key=eq.event_config', // event_configの行だけ監視
-        },
-        (payload) => {
-          // 変更があったらstateを即座に更新
-          const newValue = payload.new.value;
-          setIsEventEnded(newValue.is_ended);
-        }
-      )
-      .subscribe();
-
-    // クリーンアップ
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   const fetchLogs = useCallback(async () => {
@@ -605,9 +586,17 @@ function GameContent({ session }: { session: any }) {
         setIsMemberLoading(false);
       }
 
+      // fetchData内での計算は一応残すが、メインはuseEffectで行う
       setMyRankTitle(getRankTitle(totalSent));
     }
   }, [user, appConfig, getRankTitle, router]);
+
+  // 🆕 ランクタイトルのリアクティブな更新 (config読み込み完了時に再計算)
+  useEffect(() => {
+    if (myTotalSent >= 0) {
+      setMyRankTitle(getRankTitle(myTotalSent));
+    }
+  }, [appConfig, myTotalSent, getRankTitle]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -644,7 +633,7 @@ function GameContent({ session }: { session: any }) {
   const handleClickUser = useCallback((targetId: string) => {
     if (!user) return alert("ログインしてください");
     if (targetId === user.id) return alert("自分には贈れません");
-    if (isEventEnded) return; // 🆕 終了時は無効化
+    if (isEventEnded) return; 
     
     setSelectedUsers(prev => {
       const newSet = new Set(prev);
@@ -714,7 +703,6 @@ function GameContent({ session }: { session: any }) {
   return (
     <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
       
-      {/* 🆕 イベント終了オーバーレイ */}
       {isEventEnded && (
         <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-grayscale flex flex-col items-center justify-center p-8 text-center cursor-not-allowed select-none">
           <div className="text-6xl mb-6 animate-pulse">🛸</div>
