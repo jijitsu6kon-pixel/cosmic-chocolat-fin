@@ -148,7 +148,7 @@ const ShootingStarLayer = memo(() => {
 ShootingStarLayer.displayName = 'ShootingStarLayer';
 
 // ==========================================
-// 🎆 バレンタイン打ち上げ花火演出レイヤー (🆕 ラッキー強化＆スマホ軽量化)
+// 🎆 バレンタイン打ち上げ花火演出レイヤー (🆕 軽量化調整版)
 // ==========================================
 const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey, isLuckyMode }: { isActive: boolean, onComplete: () => void, runKey: number, isLuckyMode: boolean }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -161,35 +161,35 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey, isLuckyMode }
   }, []);
 
   const generateParticles = useCallback(() => {
-    // スマホの場合はパーティクルなし
+    // 🛠️ スマホの場合はパーティクル完全カット（画像のみ）
     if (isMobile) return [];
 
-    // 🛠️ ラッキーモード（PC）なら300個、通常なら60個
-    const count = isLuckyMode ? 300 : 60; 
+    // 🛠️ PC版のパーティクル数を調整して軽量化
+    // 通常: 30個（控えめ）
+    // ラッキー: 100個（豪華だが前回の1/3程度に抑える）
+    const count = isLuckyMode ? 100 : 30; 
     
     return Array.from({ length: count }, (_, i) => {
       const rand = Math.random();
       let emoji = '🍫';
       
       if (isLuckyMode) {
-        // 🌟 ラッキーモード用の豪華な絵文字セット
-        if (rand > 0.9) emoji = '💎'; // レア
+        if (rand > 0.9) emoji = '💎'; 
         else if (rand > 0.7) emoji = '☄️';
         else if (rand > 0.5) emoji = '🌟';
         else if (rand > 0.3) emoji = '🚀';
         else emoji = '💰';
       } else {
-        // 通常モード
         if (rand > 0.7) emoji = '🚀';
         if (rand > 0.9) emoji = '✨'; 
       }
 
       const startLeft = Math.random() * 100;
       const targetTop = 10 + Math.random() * 40; 
-      const wobble = (Math.random() - 0.5) * (isLuckyMode ? 100 : 50); // ラッキーは揺れも大きく
-      const scale = 0.8 + Math.random() * (isLuckyMode ? 2.5 : 1.5); // ラッキーは巨大化
+      const wobble = (Math.random() - 0.5) * (isLuckyMode ? 80 : 30);
+      const scale = 0.8 + Math.random() * (isLuckyMode ? 2.0 : 1.2);
       const duration = 2 + Math.random() * 1.5; 
-      const delay = Math.random() * (isLuckyMode ? 2.0 : 1.0); // 長く降り注ぐ
+      const delay = Math.random() * (isLuckyMode ? 1.5 : 0.8);
 
       return { id: i, emoji, startLeft, targetTop, wobble, scale, duration, delay };
     });
@@ -236,19 +236,17 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey, isLuckyMode }
           50% { filter: brightness(2) drop-shadow(0 0 20px rgba(255,51,153,1)); }
         }
 
-        /* 🌟 ラッキーモード用の金色の閃光 */
         @keyframes luckyFlash {
           0% { opacity: 0; }
-          10% { opacity: 0.8; }
+          10% { opacity: 0.5; } /* 負荷軽減のため不透明度を下げる */
           100% { opacity: 0; }
         }
 
-        /* 🌟 ラッキーモード用のテキスト出現 */
         @keyframes popText {
           0% { transform: translate(-50%, -50%) scale(0) rotate(-10deg); opacity: 0; }
-          50% { transform: translate(-50%, -50%) scale(1.5) rotate(0deg); opacity: 1; }
+          50% { transform: translate(-50%, -50%) scale(1.2) rotate(0deg); opacity: 1; }
           70% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
-          100% { transform: translate(-50%, -50%) scale(1.2) rotate(0deg); opacity: 0; }
+          100% { transform: translate(-50%, -50%) scale(1.1) rotate(0deg); opacity: 0; }
         }
 
         .center-image-container {
@@ -278,7 +276,7 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey, isLuckyMode }
         .lucky-overlay {
           position: absolute;
           inset: 0;
-          background: radial-gradient(circle, rgba(255,215,0,0.4) 0%, rgba(255,100,0,0) 70%);
+          background: radial-gradient(circle, rgba(255,215,0,0.3) 0%, rgba(255,100,0,0) 70%);
           mix-blend-mode: screen;
           animation: luckyFlash 1s ease-out forwards;
           z-index: 5;
@@ -299,15 +297,21 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey, isLuckyMode }
           font-style: italic;
           letter-spacing: 0.1em;
         }
+
+        /* スマホ用テキストサイズ調整 */
+        @media (max-width: 768px) {
+          .lucky-text {
+            font-size: 2rem;
+            top: 30%;
+          }
+        }
       `}</style>
 
-      {/* ラッキーモード時のみ表示される演出（PCのみ） */}
-      {isLuckyMode && !isMobile && (
-        <>
-          <div className="lucky-overlay"></div>
-          <div className="lucky-text">LUCKY METEOR!!</div>
-        </>
-      )}
+      {/* ラッキーモードのフラッシュ（PCのみ） */}
+      {isLuckyMode && !isMobile && <div className="lucky-overlay"></div>}
+
+      {/* 🛠️ ラッキーモードのテキスト（PC・スマホ両方で表示！） */}
+      {isLuckyMode && <div className="lucky-text">LUCKY METEOR!!</div>}
 
       <div className="center-image-container">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -585,9 +589,7 @@ function GameContent({ session }: { session: any }) {
   const user = session?.user ?? null;
   
   const [rankingList, setRankingList] = useState<CrewStats[]>([]);
-  
-  const [memberList, setMemberList] = useState<CrewStats[]>([]); // 全員（サイドパネル用）
-  const [gridList, setGridList] = useState<CrewStats[]>([]); // 自分抜き（メイングリッド用）
+  const [memberList, setMemberList] = useState<CrewStats[]>([]);
   
   const [totalChocolates, setTotalChocolates] = useState<number>(0);
   const [isRankingLoading, setIsRankingLoading] = useState(true);
@@ -772,7 +774,6 @@ function GameContent({ session }: { session: any }) {
             console.error("Send Error:", error);
             alert("⚠️ エラー：送信できませんでした。\nクールダウン中か、通信エラーの可能性があります。");
         } 
-        // 成功時のアラートは廃止（演出を止めないため）
     }, 500);
     
     fetchData(true);
