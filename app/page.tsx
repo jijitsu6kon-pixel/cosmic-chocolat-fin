@@ -148,31 +148,21 @@ const ShootingStarLayer = memo(() => {
 ShootingStarLayer.displayName = 'ShootingStarLayer';
 
 // ==========================================
-// 🎆 バレンタイン打ち上げ花火演出レイヤー (🆕 下から発射＆ピカピカ)
+// 🎆 バレンタイン打ち上げ花火演出レイヤー (🆕 フェードアウト改善＆スマホ対応)
 // ==========================================
-const ValentineLaunchLayer = memo(({ isActive, onComplete }: { isActive: boolean, onComplete: () => void }) => {
+const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey }: { isActive: boolean, onComplete: () => void, runKey: number }) => {
   const generateParticles = useCallback(() => {
-    const count = 60; // パーティクル数増量
+    const count = 60; 
     return Array.from({ length: count }, (_, i) => {
-      // 絵文字の抽選（キラキラを追加）
       const rand = Math.random();
       let emoji = '🍫';
       if (rand > 0.7) emoji = '🚀';
-      if (rand > 0.9) emoji = '✨'; // 10%の確率でキラキラ
+      if (rand > 0.9) emoji = '✨'; 
 
-      // 画面のどこから出るか（左端0% 〜 右端100%）
       const startLeft = Math.random() * 100;
-      
-      // どのくらいの高さまで飛ぶか (画面の上の方 50%〜90%)
       const targetTop = 10 + Math.random() * 40; 
-      
-      // 左右の揺れ幅
       const wobble = (Math.random() - 0.5) * 50;
-
-      // サイズ
       const scale = 0.8 + Math.random() * 1.5;
-      
-      // アニメーション速度（バラつきを持たせる）
       const duration = 2 + Math.random() * 1.5; 
       const delay = Math.random() * 1.0;
 
@@ -180,46 +170,47 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete }: { isActive: boolean
     });
   }, []);
 
-  const particles = useMemo(() => isActive ? generateParticles() : [], [isActive, generateParticles]);
+  // 🛠️ runKey（実行ID）が変わるたびにパーティクルを再生成する（スマホ対策）
+  const particles = useMemo(() => isActive ? generateParticles() : [], [isActive, generateParticles, runKey]);
 
   useEffect(() => {
     if (isActive) {
-      const timer = setTimeout(onComplete, 4000);
+      // 少し長めに待ってから終了させる（フェードアウトを最後まで見せるため）
+      const timer = setTimeout(onComplete, 5500);
       return () => clearTimeout(timer);
     }
-  }, [isActive, onComplete]);
+  }, [isActive, onComplete, runKey]);
 
   if (!isActive) return null;
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
+    // 🛠️ keyにrunKeyを指定して、Reactに「別の要素だぞ」と認識させてアニメーションをリセットさせる
+    <div key={runKey} className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
       <style jsx>{`
         /* 中央画像：下から浮き上がる */
         @keyframes floatUpMain {
           0% { transform: translate(-50%, 100vh) scale(0.5); opacity: 0; }
-          40% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
-          60% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+          30% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+          50% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
           100% { transform: translate(-50%, -60%) scale(1.05); opacity: 0; }
         }
         
-        /* パーティクル：打ち上げ */
+        /* パーティクル：打ち上げ＆フェードアウト */
         @keyframes launchUp {
           0% { 
             bottom: -50px;
             transform: translateX(0) rotate(0deg) scale(0.5);
             opacity: 1;
           }
-          50% {
-            opacity: 1;
-          }
+          20% { opacity: 1; }
+          70% { opacity: 1; } /* 途中まではハッキリ表示 */
           100% {
             bottom: var(--target-height);
             transform: translateX(var(--wobble)) rotate(360deg) scale(var(--scale));
-            opacity: 0;
+            opacity: 0; /* 最後はスゥーッと消える */
           }
         }
 
-        /* ピカピカ点滅 */
         @keyframes twinkle {
           0%, 100% { filter: brightness(1) drop-shadow(0 0 5px rgba(255,215,0,0.5)); }
           50% { filter: brightness(2) drop-shadow(0 0 20px rgba(255,51,153,1)); }
@@ -233,7 +224,7 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete }: { isActive: boolean
           width: min(90vw, 600px); 
           height: auto;
           aspect-ratio: 1 / 1;
-          animation: floatUpMain 4s ease-out forwards;
+          animation: floatUpMain 5s ease-out forwards;
           z-index: 10;
         }
 
@@ -246,17 +237,15 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete }: { isActive: boolean
           --scale: 1;
           animation: 
             launchUp var(--duration) ease-out forwards,
-            twinkle 0.5s ease-in-out infinite alternate; /* ピカピカ */
+            twinkle 0.5s ease-in-out infinite alternate;
         }
       `}</style>
 
-      {/* メイン画像：下から登場 */}
       <div className="center-image-container">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/valentine_center.png" alt="Valentine Gift" className="w-full h-full object-contain drop-shadow-[0_0_50px_rgba(255,51,102,0.8)]" />
       </div>
 
-      {/* 打ち上げパーティクル */}
       {particles.map((p) => (
         <div
           key={p.id}
@@ -339,7 +328,8 @@ const MemberPanel = memo(({ isOpen, onClose, members, getRankTitle }: { isOpen: 
                   <span className="text-[10px] text-[#ffd700] bg-[#ffd700]/10 px-1.5 py-0.5 rounded border border-[#ffd700]/20">
                     {getRankTitle(m.sent_count)}
                   </span>
-                  <span className="text-[10px] text-[#e6e6fa]/50">💝 {m.sent_count}</span>
+                  {/* 🛠️ マウスオーバーで「送った数」を表示するようにtitle属性を追加 */}
+                  <span className="text-[10px] text-[#e6e6fa]/50 cursor-help" title={`🎁 送った数: ${m.sent_count}個`}>💝 {m.sent_count}</span>
                 </div>
               </div>
             </div>
@@ -544,7 +534,10 @@ function GameContent({ session }: { session: any }) {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const isMounted = useRef(true);
 
+  // 🛠️ runKey: アニメーションを再実行させるためのユニークキー
+  const [runKey, setRunKey] = useState(0); 
   const [isRocketFlying, setIsRocketFlying] = useState(false);
+  
   const [myTotalSent, setMyTotalSent] = useState(0); 
   const [myRankTitle, setMyRankTitle] = useState('見習いクルー'); 
   const [appConfig, setAppConfig] = useState<any>({});
@@ -614,7 +607,10 @@ function GameContent({ session }: { session: any }) {
     if (error) { console.error(error); return; }
     if (!allStats) return;
 
-    const members = allStats.filter((p: any) => p.id !== user.id);
+    // 🛠️ 修正: 自分も含めるようにフィルタを削除
+    // const members = allStats.filter((p: any) => p.id !== user.id); 
+    const members = allStats; // ← 自分もリストに表示！
+
     const ranking = allStats.slice(0, 10);
     const total = allStats.reduce((acc: number, curr: any) => acc + (curr.received_count || 0), 0);
 
@@ -682,7 +678,8 @@ function GameContent({ session }: { session: any }) {
   const handleSend = async () => {
     if (!user || selectedUsers.size === 0) return;
     
-    // 1. 演出開始
+    // 1. 演出開始（runKeyを更新して強制的に新しい演出を開始）
+    setRunKey(prev => prev + 1); 
     setIsRocketFlying(true); 
 
     const meteorConfig = appConfig.lucky_meteor_config || { enabled: false, probability: 0, multiplier: 1 };
@@ -690,7 +687,7 @@ function GameContent({ session }: { session: any }) {
     const quantity = isLucky ? meteorConfig.multiplier : 1;
 
     const targets = Array.from(selectedUsers);
-    setSelectedUsers(new Set()); // 選択解除
+    setSelectedUsers(new Set()); 
 
     const updates = targets.map(rid => ({ 
       sender_id: user.id, 
@@ -747,8 +744,8 @@ function GameContent({ session }: { session: any }) {
   return (
     <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
       
-      {/* 🆕 打ち上げ花火＆激ピカ演出 */}
-      <ValentineLaunchLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} />
+      {/* 🆕 runKeyを渡してスマホでも確実にリロードされるようにする */}
+      <ValentineLaunchLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} runKey={runKey} />
       
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
       
@@ -828,23 +825,24 @@ function GameContent({ session }: { session: any }) {
                    <div className="flex-1">
                      <p className="text-[10px] text-[#e6e6fa]/60 uppercase tracking-widest mb-1">CREW NAME</p>
                      
+                     {/* 🛠️ スマホでもボタンが押せるようにmin-w-0を追加し、flexレイアウトを調整 */}
                      <div className={`flex items-center gap-2 rounded-xl p-1.5 transition-colors border ${isEditing ? 'bg-black/40 border-[#ff3366]/50' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
                         {isEditing ? (
                           <input 
                             autoFocus
                             type="text" 
-                            className={`flex-1 bg-transparent outline-none text-white font-bold ${getNameSize(inputName)}`}
+                            className={`flex-1 min-w-0 bg-transparent outline-none text-white font-bold ${getNameSize(inputName)}`}
                             value={inputName} 
                             onChange={(e) => setInputName(e.target.value)} 
                           />
                         ) : (
-                          <span className={`flex-1 text-[#e6e6fa] font-bold truncate ${getNameSize(myProfileName)}`}>{myProfileName}</span>
+                          <span className={`flex-1 min-w-0 text-[#e6e6fa] font-bold truncate ${getNameSize(myProfileName)}`}>{myProfileName}</span>
                         )}
                         
                         <button 
                           onClick={() => isEditing ? handleUpdateName() : setIsEditing(true)} 
                           disabled={isActionLoading}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1033] hover:bg-[#2a2040] text-[#ffd700] transition-all"
+                          className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg bg-[#1a1033] hover:bg-[#2a2040] text-[#ffd700] transition-all"
                         >
                           {isActionLoading ? '...' : isEditing ? '🔄' : '✏️'}
                         </button>
@@ -882,7 +880,7 @@ function GameContent({ session }: { session: any }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 pb-4">
               {isMemberLoading ? (
                 Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={`skel-mem-${i}`} />)
-              ) : filteredMembers.length === 0 ? (
+              ) : filteredMembers.length ===0 ? (
                 <p className="col-span-full text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">クルーメイトが見つかりません</p>
               ) : (
                 filteredMembers.map((m) => (
