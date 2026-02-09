@@ -148,10 +148,23 @@ const ShootingStarLayer = memo(() => {
 ShootingStarLayer.displayName = 'ShootingStarLayer';
 
 // ==========================================
-// 🎆 バレンタイン打ち上げ花火演出レイヤー
+// 🎆 バレンタイン打ち上げ花火演出レイヤー (🆕 スマホ軽量化対応)
 // ==========================================
 const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey }: { isActive: boolean, onComplete: () => void, runKey: number }) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  // 🛠️ 画面サイズをチェックしてスマホかどうか判定
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile(); // 初期チェック
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const generateParticles = useCallback(() => {
+    // 🛠️ スマホの場合はパーティクルを生成しない（空配列を返す）
+    if (isMobile) return [];
+
     const count = 60; 
     return Array.from({ length: count }, (_, i) => {
       const rand = Math.random();
@@ -168,13 +181,13 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey }: { isActive:
 
       return { id: i, emoji, startLeft, targetTop, wobble, scale, duration, delay };
     });
-  }, []);
+  }, [isMobile]); // 依存配列にisMobileを追加
 
+  // isMobileが変わったらパーティクルを再計算（スマホなら0個になる）
   const particles = useMemo(() => isActive ? generateParticles() : [], [isActive, generateParticles, runKey]);
 
   useEffect(() => {
     if (isActive) {
-      // アニメーション完了より少し長めに待ってからクリーンアップ
       const timer = setTimeout(onComplete, 6000);
       return () => clearTimeout(timer);
     }
@@ -237,11 +250,13 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey }: { isActive:
         }
       `}</style>
 
+      {/* メイン画像はPC/スマホ共通で表示 */}
       <div className="center-image-container">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/valentine_center.png" alt="Valentine Gift" className="w-full h-full object-contain drop-shadow-[0_0_50px_rgba(255,51,102,0.8)]" />
       </div>
 
+      {/* パーティクルはスマホでは空配列になるので描画されない */}
       {particles.map((p) => (
         <div
           key={p.id}
@@ -324,7 +339,6 @@ const MemberPanel = memo(({ isOpen, onClose, members, getRankTitle }: { isOpen: 
                   <span className="text-[10px] text-[#ffd700] bg-[#ffd700]/10 px-1.5 py-0.5 rounded border border-[#ffd700]/20">
                     {getRankTitle(m.sent_count)}
                   </span>
-                  {/* 🛠️ 修正: カーソルを通常のポインターにし、titleで数を表示 */}
                   <span className="text-[10px] text-[#e6e6fa]/50 cursor-pointer" title={`🎁 送った数: ${m.sent_count}個`}>💝 {m.sent_count}</span>
                 </div>
               </div>
@@ -515,7 +529,6 @@ function GameContent({ session }: { session: any }) {
   
   const [rankingList, setRankingList] = useState<CrewStats[]>([]);
   
-  // 🛠️ 修正: 表示用のリスト（自分抜き）と、全メンバーリスト（サイドパネル用）を分ける
   const [memberList, setMemberList] = useState<CrewStats[]>([]); // 全員（サイドパネル用）
   const [gridList, setGridList] = useState<CrewStats[]>([]); // 自分抜き（メイングリッド用）
   
@@ -605,7 +618,6 @@ function GameContent({ session }: { session: any }) {
     if (error) { console.error(error); return; }
     if (!allStats) return;
 
-    // 🛠️ 修正: リストを2種類用意する
     const allMembers = allStats; // サイドパネル用（自分含む）
     const gridCandidates = allStats.filter((p: any) => p.id !== user.id); // メインググリッド用（自分除く）
 
@@ -616,8 +628,8 @@ function GameContent({ session }: { session: any }) {
     const totalSent = myStats?.sent_count || 0;
 
     if (isMounted.current) {
-      setMemberList(allMembers); // サイド用
-      setGridList(gridCandidates); // メイン用
+      setMemberList(allMembers);
+      setGridList(gridCandidates); 
       setRankingList(ranking);
       setTotalChocolates(total);
       setMyTotalSent(totalSent);
@@ -694,13 +706,11 @@ function GameContent({ session }: { session: any }) {
 
     const { error } = await supabase.from('chocolates').insert(updates);
 
-    // 🛠️ 修正: 成功時のアラート（ポップアップ）を削除し、エラー時のみ表示する
     setTimeout(() => {
         if (error) {
             console.error("Send Error:", error);
             alert("⚠️ エラー：送信できませんでした。\nクールダウン中か、通信エラーの可能性があります。");
         } 
-        // Success else block is empty -> No alert, animation continues smoothly.
     }, 500);
     
     fetchData(true);
@@ -729,7 +739,6 @@ function GameContent({ session }: { session: any }) {
   };
 
   const filteredMembers = useMemo(() => {
-    // 🛠️ 修正: メイングリッド用リスト（gridList）に対してフィルタリングを行う
     return gridList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
   }, [gridList, searchText]);
 
@@ -740,7 +749,6 @@ function GameContent({ session }: { session: any }) {
       
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
       
-      {/* 🛠️ サイドパネルには「自分を含む全員（memberList）」を渡す */}
       <MemberPanel 
         isOpen={isMemberOpen} 
         onClose={() => setIsMemberOpen(false)} 
