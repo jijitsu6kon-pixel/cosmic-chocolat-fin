@@ -86,7 +86,7 @@ const StarBackground = memo(() => {
 StarBackground.displayName = 'StarBackground';
 
 // ==========================================
-// 💫 流れ星演出レイヤー (ピンク・フェードアウト・低頻度)
+// 💫 流れ星演出レイヤー
 // ==========================================
 const ShootingStarLayer = memo(() => {
   return (
@@ -113,24 +113,9 @@ const ShootingStarLayer = memo(() => {
           box-shadow: 0 0 4px rgba(255, 51, 153, 0.8), 0 0 8px rgba(255, 51, 153, 0.4);
           animation: shrinkHead 12000ms ease-in-out infinite;
         }
-        @keyframes tail {
-          0% { width: 0; }
-          10% { width: 100px; }
-          25% { width: 0; }
-          100% { width: 0; }
-        }
-        @keyframes shooting {
-          0% { transform: translateX(0) translateY(0) rotateZ(45deg); opacity: 1; }
-          20% { opacity: 1; }
-          25% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; }
-          100% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; }
-        }
-        @keyframes shrinkHead {
-          0% { transform: translateY(-50%) scale(1); }
-          15% { transform: translateY(-50%) scale(1); }
-          25% { transform: translateY(-50%) scale(0); }
-          100% { transform: translateY(-50%) scale(0); }
-        }
+        @keyframes tail { 0% { width: 0; } 10% { width: 100px; } 25% { width: 0; } 100% { width: 0; } }
+        @keyframes shooting { 0% { transform: translateX(0) translateY(0) rotateZ(45deg); opacity: 1; } 20% { opacity: 1; } 25% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; } 100% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; } }
+        @keyframes shrinkHead { 0% { transform: translateY(-50%) scale(1); } 15% { transform: translateY(-50%) scale(1); } 25% { transform: translateY(-50%) scale(0); } 100% { transform: translateY(-50%) scale(0); } }
         .star-1 { top: -5%; left: 50%; animation-delay: 0ms; }
         .star-2 { top: 25%; left: 85%; animation-delay: 2400ms; }
         .star-3 { top: -15%; left: 15%; animation-delay: 4800ms; }
@@ -148,7 +133,7 @@ const ShootingStarLayer = memo(() => {
 ShootingStarLayer.displayName = 'ShootingStarLayer';
 
 // ==========================================
-// 🎆 バレンタイン打ち上げ花火演出レイヤー (🆕 軽量化調整版)
+// 🎆 バレンタイン打ち上げ花火演出レイヤー (軽量化版)
 // ==========================================
 const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey, isLuckyMode }: { isActive: boolean, onComplete: () => void, runKey: number, isLuckyMode: boolean }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -161,36 +146,22 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey, isLuckyMode }
   }, []);
 
   const generateParticles = useCallback(() => {
-    // 🛠️ スマホの場合はパーティクル完全カット（画像のみ）
     if (isMobile) return [];
-
-    // 🛠️ PC版のパーティクル数を調整して軽量化
-    // 通常: 30個（控えめ）
-    // ラッキー: 100個（豪華だが前回の1/3程度に抑える）
     const count = isLuckyMode ? 100 : 30; 
-    
     return Array.from({ length: count }, (_, i) => {
       const rand = Math.random();
       let emoji = '🍫';
-      
       if (isLuckyMode) {
-        if (rand > 0.9) emoji = '💎'; 
-        else if (rand > 0.7) emoji = '☄️';
-        else if (rand > 0.5) emoji = '🌟';
-        else if (rand > 0.3) emoji = '🚀';
-        else emoji = '💰';
+        if (rand > 0.9) emoji = '💎'; else if (rand > 0.7) emoji = '☄️'; else if (rand > 0.5) emoji = '🌟'; else if (rand > 0.3) emoji = '🚀'; else emoji = '💰';
       } else {
-        if (rand > 0.7) emoji = '🚀';
-        if (rand > 0.9) emoji = '✨'; 
+        if (rand > 0.7) emoji = '🚀'; if (rand > 0.9) emoji = '✨'; 
       }
-
       const startLeft = Math.random() * 100;
       const targetTop = 10 + Math.random() * 40; 
       const wobble = (Math.random() - 0.5) * (isLuckyMode ? 80 : 30);
       const scale = 0.8 + Math.random() * (isLuckyMode ? 2.0 : 1.2);
       const duration = 2 + Math.random() * 1.5; 
       const delay = Math.random() * (isLuckyMode ? 1.5 : 0.8);
-
       return { id: i, emoji, startLeft, targetTop, wobble, scale, duration, delay };
     });
   }, [isMobile, isLuckyMode]);
@@ -209,128 +180,25 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey, isLuckyMode }
   return (
     <div key={runKey} className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
       <style jsx>{`
-        @keyframes floatUpMain {
-          0% { transform: translate(-50%, 100vh) scale(0.5); opacity: 0; }
-          30% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
-          50% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-          100% { transform: translate(-50%, -60%) scale(1.05); opacity: 0; }
-        }
-        
-        @keyframes launchUp {
-          0% { 
-            bottom: -50px;
-            transform: translateX(0) rotate(0deg) scale(0.5);
-            opacity: 1;
-          }
-          20% { opacity: 1; }
-          70% { opacity: 1; } 
-          100% {
-            bottom: var(--target-height);
-            transform: translateX(var(--wobble)) rotate(360deg) scale(var(--scale));
-            opacity: 0; 
-          }
-        }
-
-        @keyframes twinkle {
-          0%, 100% { filter: brightness(1) drop-shadow(0 0 5px rgba(255,215,0,0.5)); }
-          50% { filter: brightness(2) drop-shadow(0 0 20px rgba(255,51,153,1)); }
-        }
-
-        @keyframes luckyFlash {
-          0% { opacity: 0; }
-          10% { opacity: 0.5; } /* 負荷軽減のため不透明度を下げる */
-          100% { opacity: 0; }
-        }
-
-        @keyframes popText {
-          0% { transform: translate(-50%, -50%) scale(0) rotate(-10deg); opacity: 0; }
-          50% { transform: translate(-50%, -50%) scale(1.2) rotate(0deg); opacity: 1; }
-          70% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
-          100% { transform: translate(-50%, -50%) scale(1.1) rotate(0deg); opacity: 0; }
-        }
-
-        .center-image-container {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          transform: translate(-50%, -50%);
-          width: min(90vw, 600px); 
-          height: auto;
-          aspect-ratio: 1 / 1;
-          animation: floatUpMain 5s ease-out forwards;
-          z-index: 10;
-        }
-
-        .particle {
-          position: absolute;
-          font-size: 2rem;
-          bottom: -50px;
-          --target-height: 80vh;
-          --wobble: 20px;
-          --scale: 1;
-          animation: 
-            launchUp var(--duration) ease-out forwards,
-            twinkle 0.5s ease-in-out infinite alternate;
-        }
-
-        .lucky-overlay {
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(circle, rgba(255,215,0,0.3) 0%, rgba(255,100,0,0) 70%);
-          mix-blend-mode: screen;
-          animation: luckyFlash 1s ease-out forwards;
-          z-index: 5;
-        }
-
-        .lucky-text {
-          position: absolute;
-          left: 50%;
-          top: 40%;
-          transform: translate(-50%, -50%);
-          font-size: 4rem;
-          font-weight: 900;
-          color: #ffd700;
-          text-shadow: 0 0 20px #ff0000, 0 0 40px #ffff00;
-          white-space: nowrap;
-          z-index: 20;
-          animation: popText 4s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
-          font-style: italic;
-          letter-spacing: 0.1em;
-        }
-
-        /* スマホ用テキストサイズ調整 */
-        @media (max-width: 768px) {
-          .lucky-text {
-            font-size: 2rem;
-            top: 30%;
-          }
-        }
+        @keyframes floatUpMain { 0% { transform: translate(-50%, 100vh) scale(0.5); opacity: 0; } 30% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } 50% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -60%) scale(1.05); opacity: 0; } }
+        @keyframes launchUp { 0% { bottom: -50px; transform: translateX(0) rotate(0deg) scale(0.5); opacity: 1; } 20% { opacity: 1; } 70% { opacity: 1; } 100% { bottom: var(--target-height); transform: translateX(var(--wobble)) rotate(360deg) scale(var(--scale)); opacity: 0; } }
+        @keyframes twinkle { 0%, 100% { filter: brightness(1) drop-shadow(0 0 5px rgba(255,215,0,0.5)); } 50% { filter: brightness(2) drop-shadow(0 0 20px rgba(255,51,153,1)); } }
+        @keyframes luckyFlash { 0% { opacity: 0; } 10% { opacity: 0.5; } 100% { opacity: 0; } }
+        @keyframes popText { 0% { transform: translate(-50%, -50%) scale(0) rotate(-10deg); opacity: 0; } 50% { transform: translate(-50%, -50%) scale(1.2) rotate(0deg); opacity: 1; } 70% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1.1) rotate(0deg); opacity: 0; } }
+        .center-image-container { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(90vw, 600px); height: auto; aspect-ratio: 1 / 1; animation: floatUpMain 5s ease-out forwards; z-index: 10; }
+        .particle { position: absolute; font-size: 2rem; bottom: -50px; --target-height: 80vh; --wobble: 20px; --scale: 1; animation: launchUp var(--duration) ease-out forwards, twinkle 0.5s ease-in-out infinite alternate; }
+        .lucky-overlay { position: absolute; inset: 0; background: radial-gradient(circle, rgba(255,215,0,0.3) 0%, rgba(255,100,0,0) 70%); mix-blend-mode: screen; animation: luckyFlash 1s ease-out forwards; z-index: 5; }
+        .lucky-text { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); font-size: 4rem; font-weight: 900; color: #ffd700; text-shadow: 0 0 20px #ff0000, 0 0 40px #ffff00; white-space: nowrap; z-index: 20; animation: popText 4s cubic-bezier(0.1, 0.8, 0.2, 1) forwards; font-style: italic; letter-spacing: 0.1em; }
+        @media (max-width: 768px) { .lucky-text { font-size: 2rem; top: 30%; } }
       `}</style>
-
-      {/* ラッキーモードのフラッシュ（PCのみ） */}
       {isLuckyMode && !isMobile && <div className="lucky-overlay"></div>}
-
-      {/* 🛠️ ラッキーモードのテキスト（PC・スマホ両方で表示！） */}
       {isLuckyMode && <div className="lucky-text">LUCKY METEOR!!</div>}
-
       <div className="center-image-container">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/valentine_center.png" alt="Valentine Gift" className="w-full h-full object-contain drop-shadow-[0_0_50px_rgba(255,51,102,0.8)]" />
       </div>
-
       {particles.map((p) => (
-        <div
-          key={p.id}
-          className="particle"
-          style={{
-            left: `${p.startLeft}%`,
-            '--target-height': `${100 - p.targetTop}vh`,
-            '--wobble': `${p.wobble}px`,
-            '--scale': `${p.scale}`,
-            '--duration': `${p.duration}s`,
-            animationDelay: `${p.delay}s`
-          } as React.CSSProperties}
-        >
+        <div key={p.id} className="particle" style={{ left: `${p.startLeft}%`, '--target-height': `${100 - p.targetTop}vh`, '--wobble': `${p.wobble}px`, '--scale': `${p.scale}`, '--duration': `${p.duration}s`, animationDelay: `${p.delay}s` } as React.CSSProperties}>
           {p.emoji}
         </div>
       ))}
@@ -589,7 +457,9 @@ function GameContent({ session }: { session: any }) {
   const user = session?.user ?? null;
   
   const [rankingList, setRankingList] = useState<CrewStats[]>([]);
-  const [memberList, setMemberList] = useState<CrewStats[]>([]);
+  
+  const [memberList, setMemberList] = useState<CrewStats[]>([]); // 全員（サイドパネル用）
+  const [gridList, setGridList] = useState<CrewStats[]>([]); // 自分抜き（メイングリッド用）
   
   const [totalChocolates, setTotalChocolates] = useState<number>(0);
   const [isRankingLoading, setIsRankingLoading] = useState(true);
@@ -616,6 +486,9 @@ function GameContent({ session }: { session: any }) {
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [isMemberOpen, setIsMemberOpen] = useState(false);
+
+  // 🆕 イベント終了フラグ
+  const isEventEnded = appConfig.event_config?.is_ended;
 
   // ----------------------------------------
   // 🔄 データ取得
@@ -738,16 +611,17 @@ function GameContent({ session }: { session: any }) {
   const handleClickUser = useCallback((targetId: string) => {
     if (!user) return alert("ログインしてください");
     if (targetId === user.id) return alert("自分には贈れません");
+    if (isEventEnded) return; // 🆕 終了時は無効化
     
     setSelectedUsers(prev => {
       const newSet = new Set(prev);
       newSet.has(targetId) ? newSet.delete(targetId) : newSet.add(targetId);
       return newSet;
     });
-  }, [user]);
+  }, [user, isEventEnded]);
 
   const handleSend = async () => {
-    if (!user || selectedUsers.size === 0) return;
+    if (!user || selectedUsers.size === 0 || isEventEnded) return;
     
     // 確率計算と演出タイプの決定
     const meteorConfig = appConfig.lucky_meteor_config || { enabled: false, probability: 0, multiplier: 1 };
@@ -808,7 +682,15 @@ function GameContent({ session }: { session: any }) {
   return (
     <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
       
-      {/* 🆕 isLuckyModeを渡す */}
+      {/* 🆕 イベント終了オーバーレイ */}
+      {isEventEnded && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-grayscale flex flex-col items-center justify-center p-8 text-center cursor-not-allowed select-none">
+          <div className="text-6xl mb-6 animate-pulse">🛸</div>
+          <h1 className="text-4xl md:text-6xl font-black text-gray-400 tracking-widest mb-4">EVENT ENDED</h1>
+          <p className="text-gray-500 font-bold">全てのミッションが完了しました。<br/>クルーの皆様、お疲れ様でした。</p>
+        </div>
+      )}
+
       <ValentineLaunchLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} runKey={runKey} isLuckyMode={lastLaunchType === 'lucky'} />
       
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
@@ -964,7 +846,7 @@ function GameContent({ session }: { session: any }) {
 
             <div className="fixed bottom-6 left-0 right-0 px-6 z-50 pointer-events-none">
               <div className="max-w-lg mx-auto pointer-events-auto">
-                <button onClick={handleSend} disabled={selectedUsers.size === 0} className={`w-full py-6 rounded-3xl font-black text-lg tracking-[0.2em] shadow-2xl transition-all relative overflow-hidden group border-2 ${selectedUsers.size === 0 ? 'bg-[#1a1033]/90 border-white/5 text-[#e6e6fa]/30 backdrop-blur-sm cursor-not-allowed translate-y-20 opacity-0' : 'bg-gradient-to-r from-[#ff3366] via-[#ffd700] to-[#ff3366] bg-[length:200%_auto] animate-gradient border-[#ffd700] text-[#1a1033] hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_30px_rgba(255,51,102,0.8)]'}`}>
+                <button onClick={handleSend} disabled={selectedUsers.size === 0 || isEventEnded} className={`w-full py-6 rounded-3xl font-black text-lg tracking-[0.2em] shadow-2xl transition-all relative overflow-hidden group border-2 ${selectedUsers.size === 0 || isEventEnded ? 'bg-[#1a1033]/90 border-white/5 text-[#e6e6fa]/30 backdrop-blur-sm cursor-not-allowed translate-y-20 opacity-0' : 'bg-gradient-to-r from-[#ff3366] via-[#ffd700] to-[#ff3366] bg-[length:200%_auto] animate-gradient border-[#ffd700] text-[#1a1033] hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_30px_rgba(255,51,102,0.8)]'}`}>
                   <span className="relative z-10 flex items-center justify-center gap-2">チョコを贈る ({selectedUsers.size}) 🚀</span>
                   {selectedUsers.size > 0 && <div className="absolute inset-0 bg-white/40 mix-blend-overlay translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"></div>}
                 </button>
