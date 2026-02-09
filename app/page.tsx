@@ -86,7 +86,7 @@ const StarBackground = memo(() => {
 StarBackground.displayName = 'StarBackground';
 
 // ==========================================
-// 💫 流れ星演出レイヤー
+// 💫 流れ星演出レイヤー (ピンク・フェードアウト・低頻度)
 // ==========================================
 const ShootingStarLayer = memo(() => {
   return (
@@ -483,12 +483,12 @@ function GameContent({ session }: { session: any }) {
   const [myRankTitle, setMyRankTitle] = useState('見習いクルー'); 
   const [appConfig, setAppConfig] = useState<any>({});
   
+  // 🛠️ リアルタイム監視用のstate
+  const [isEventEnded, setIsEventEnded] = useState(false);
+
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [isMemberOpen, setIsMemberOpen] = useState(false);
-
-  // 🆕 イベント終了フラグ
-  const isEventEnded = appConfig.event_config?.is_ended;
 
   // ----------------------------------------
   // 🔄 データ取得
@@ -498,8 +498,41 @@ function GameContent({ session }: { session: any }) {
     if (data) {
       const configMap: any = {};
       data.forEach(item => configMap[item.key] = item.value);
-      if (isMounted.current) setAppConfig(configMap);
+      if (isMounted.current) {
+        setAppConfig(configMap);
+        // 初期状態のセット
+        if (configMap.event_config?.is_ended) {
+          setIsEventEnded(true);
+        }
+      }
     }
+  }, []);
+
+  // 🛠️ リアルタイム監視 (Supabase Realtime)
+  useEffect(() => {
+    // チャンネル登録
+    const channel = supabase
+      .channel('system_settings_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'system_settings',
+          filter: 'key=eq.event_config', // event_configの行だけ監視
+        },
+        (payload) => {
+          // 変更があったらstateを即座に更新
+          const newValue = payload.new.value;
+          setIsEventEnded(newValue.is_ended);
+        }
+      )
+      .subscribe();
+
+    // クリーンアップ
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchLogs = useCallback(async () => {
@@ -623,7 +656,6 @@ function GameContent({ session }: { session: any }) {
   const handleSend = async () => {
     if (!user || selectedUsers.size === 0 || isEventEnded) return;
     
-    // 確率計算と演出タイプの決定
     const meteorConfig = appConfig.lucky_meteor_config || { enabled: false, probability: 0, multiplier: 1 };
     const isLucky = meteorConfig.enabled && Math.random() < meteorConfig.probability;
     const quantity = isLucky ? meteorConfig.multiplier : 1;
@@ -846,7 +878,7 @@ function GameContent({ session }: { session: any }) {
 
             <div className="fixed bottom-6 left-0 right-0 px-6 z-50 pointer-events-none">
               <div className="max-w-lg mx-auto pointer-events-auto">
-                <button onClick={handleSend} disabled={selectedUsers.size === 0 || isEventEnded} className={`w-full py-6 rounded-3xl font-black text-lg tracking-[0.2em] shadow-2xl transition-all relative overflow-hidden group border-2 ${selectedUsers.size === 0 || isEventEnded ? 'bg-[#1a1033]/90 border-white/5 text-[#e6e6fa]/30 backdrop-blur-sm cursor-not-allowed translate-y-20 opacity-0' : 'bg-gradient-to-r from-[#ff3366] via-[#ffd700] to-[#ff3366] bg-[length:200%_auto] animate-gradient border-[#ffd700] text-[#1a1033] hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_30px_rgba(255,51,102,0.8)]'}`}>
+                <button onClick={handleSend} disabled={selectedUsers.size === 0} className={`w-full py-6 rounded-3xl font-black text-lg tracking-[0.2em] shadow-2xl transition-all relative overflow-hidden group border-2 ${selectedUsers.size === 0 ? 'bg-[#1a1033]/90 border-white/5 text-[#e6e6fa]/30 backdrop-blur-sm cursor-not-allowed translate-y-20 opacity-0' : 'bg-gradient-to-r from-[#ff3366] via-[#ffd700] to-[#ff3366] bg-[length:200%_auto] animate-gradient border-[#ffd700] text-[#1a1033] hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_30px_rgba(255,51,102,0.8)]'}`}>
                   <span className="relative z-10 flex items-center justify-center gap-2">チョコを贈る ({selectedUsers.size}) 🚀</span>
                   {selectedUsers.size > 0 && <div className="absolute inset-0 bg-white/40 mix-blend-overlay translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"></div>}
                 </button>
