@@ -148,7 +148,7 @@ const ShootingStarLayer = memo(() => {
 ShootingStarLayer.displayName = 'ShootingStarLayer';
 
 // ==========================================
-// 🎆 バレンタイン打ち上げ花火演出レイヤー (🆕 フェードアウト改善＆スマホ対応)
+// 🎆 バレンタイン打ち上げ花火演出レイヤー
 // ==========================================
 const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey }: { isActive: boolean, onComplete: () => void, runKey: number }) => {
   const generateParticles = useCallback(() => {
@@ -170,13 +170,12 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey }: { isActive:
     });
   }, []);
 
-  // 🛠️ runKey（実行ID）が変わるたびにパーティクルを再生成する（スマホ対策）
   const particles = useMemo(() => isActive ? generateParticles() : [], [isActive, generateParticles, runKey]);
 
   useEffect(() => {
     if (isActive) {
-      // 少し長めに待ってから終了させる（フェードアウトを最後まで見せるため）
-      const timer = setTimeout(onComplete, 5500);
+      // アニメーション完了より少し長めに待ってからクリーンアップ
+      const timer = setTimeout(onComplete, 6000);
       return () => clearTimeout(timer);
     }
   }, [isActive, onComplete, runKey]);
@@ -184,10 +183,8 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey }: { isActive:
   if (!isActive) return null;
 
   return (
-    // 🛠️ keyにrunKeyを指定して、Reactに「別の要素だぞ」と認識させてアニメーションをリセットさせる
     <div key={runKey} className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
       <style jsx>{`
-        /* 中央画像：下から浮き上がる */
         @keyframes floatUpMain {
           0% { transform: translate(-50%, 100vh) scale(0.5); opacity: 0; }
           30% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
@@ -195,7 +192,6 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey }: { isActive:
           100% { transform: translate(-50%, -60%) scale(1.05); opacity: 0; }
         }
         
-        /* パーティクル：打ち上げ＆フェードアウト */
         @keyframes launchUp {
           0% { 
             bottom: -50px;
@@ -203,11 +199,11 @@ const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey }: { isActive:
             opacity: 1;
           }
           20% { opacity: 1; }
-          70% { opacity: 1; } /* 途中まではハッキリ表示 */
+          70% { opacity: 1; } 
           100% {
             bottom: var(--target-height);
             transform: translateX(var(--wobble)) rotate(360deg) scale(var(--scale));
-            opacity: 0; /* 最後はスゥーッと消える */
+            opacity: 0; 
           }
         }
 
@@ -328,8 +324,8 @@ const MemberPanel = memo(({ isOpen, onClose, members, getRankTitle }: { isOpen: 
                   <span className="text-[10px] text-[#ffd700] bg-[#ffd700]/10 px-1.5 py-0.5 rounded border border-[#ffd700]/20">
                     {getRankTitle(m.sent_count)}
                   </span>
-                  {/* 🛠️ マウスオーバーで「送った数」を表示するようにtitle属性を追加 */}
-                  <span className="text-[10px] text-[#e6e6fa]/50 cursor-help" title={`🎁 送った数: ${m.sent_count}個`}>💝 {m.sent_count}</span>
+                  {/* 🛠️ 修正: カーソルを通常のポインターにし、titleで数を表示 */}
+                  <span className="text-[10px] text-[#e6e6fa]/50 cursor-pointer" title={`🎁 送った数: ${m.sent_count}個`}>💝 {m.sent_count}</span>
                 </div>
               </div>
             </div>
@@ -518,7 +514,10 @@ function GameContent({ session }: { session: any }) {
   const user = session?.user ?? null;
   
   const [rankingList, setRankingList] = useState<CrewStats[]>([]);
-  const [memberList, setMemberList] = useState<CrewStats[]>([]);
+  
+  // 🛠️ 修正: 表示用のリスト（自分抜き）と、全メンバーリスト（サイドパネル用）を分ける
+  const [memberList, setMemberList] = useState<CrewStats[]>([]); // 全員（サイドパネル用）
+  const [gridList, setGridList] = useState<CrewStats[]>([]); // 自分抜き（メイングリッド用）
   
   const [totalChocolates, setTotalChocolates] = useState<number>(0);
   const [isRankingLoading, setIsRankingLoading] = useState(true);
@@ -534,7 +533,6 @@ function GameContent({ session }: { session: any }) {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const isMounted = useRef(true);
 
-  // 🛠️ runKey: アニメーションを再実行させるためのユニークキー
   const [runKey, setRunKey] = useState(0); 
   const [isRocketFlying, setIsRocketFlying] = useState(false);
   
@@ -607,9 +605,9 @@ function GameContent({ session }: { session: any }) {
     if (error) { console.error(error); return; }
     if (!allStats) return;
 
-    // 🛠️ 修正: 自分も含めるようにフィルタを削除
-    // const members = allStats.filter((p: any) => p.id !== user.id); 
-    const members = allStats; // ← 自分もリストに表示！
+    // 🛠️ 修正: リストを2種類用意する
+    const allMembers = allStats; // サイドパネル用（自分含む）
+    const gridCandidates = allStats.filter((p: any) => p.id !== user.id); // メインググリッド用（自分除く）
 
     const ranking = allStats.slice(0, 10);
     const total = allStats.reduce((acc: number, curr: any) => acc + (curr.received_count || 0), 0);
@@ -618,7 +616,8 @@ function GameContent({ session }: { session: any }) {
     const totalSent = myStats?.sent_count || 0;
 
     if (isMounted.current) {
-      setMemberList(members);
+      setMemberList(allMembers); // サイド用
+      setGridList(gridCandidates); // メイン用
       setRankingList(ranking);
       setTotalChocolates(total);
       setMyTotalSent(totalSent);
@@ -678,13 +677,11 @@ function GameContent({ session }: { session: any }) {
   const handleSend = async () => {
     if (!user || selectedUsers.size === 0) return;
     
-    // 1. 演出開始（runKeyを更新して強制的に新しい演出を開始）
     setRunKey(prev => prev + 1); 
     setIsRocketFlying(true); 
 
     const meteorConfig = appConfig.lucky_meteor_config || { enabled: false, probability: 0, multiplier: 1 };
-    const isLucky = meteorConfig.enabled && Math.random() < meteorConfig.probability;
-    const quantity = isLucky ? meteorConfig.multiplier : 1;
+    const quantity = (meteorConfig.enabled && Math.random() < meteorConfig.probability) ? meteorConfig.multiplier : 1;
 
     const targets = Array.from(selectedUsers);
     setSelectedUsers(new Set()); 
@@ -695,21 +692,15 @@ function GameContent({ session }: { session: any }) {
       quantity: quantity 
     }));
 
-    // 2. データベースへ送信
     const { error } = await supabase.from('chocolates').insert(updates);
 
-    // 3. 結果判定
+    // 🛠️ 修正: 成功時のアラート（ポップアップ）を削除し、エラー時のみ表示する
     setTimeout(() => {
         if (error) {
             console.error("Send Error:", error);
             alert("⚠️ エラー：送信できませんでした。\nクールダウン中か、通信エラーの可能性があります。");
-        } else {
-            if (isLucky) {
-                alert(`☄️ LUCKY METEOR!!\n奇跡が起きました！\n${quantity}倍のチョコが降り注ぎます！`);
-            } else {
-                alert(`💝 ${targets.length}人のクルーメイトにチョコを贈りました！`);
-            }
-        }
+        } 
+        // Success else block is empty -> No alert, animation continues smoothly.
     }, 500);
     
     fetchData(true);
@@ -738,17 +729,18 @@ function GameContent({ session }: { session: any }) {
   };
 
   const filteredMembers = useMemo(() => {
-    return memberList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
-  }, [memberList, searchText]);
+    // 🛠️ 修正: メイングリッド用リスト（gridList）に対してフィルタリングを行う
+    return gridList.filter(m => m.display_name.toLowerCase().includes(searchText.toLowerCase()));
+  }, [gridList, searchText]);
 
   return (
     <main className="min-h-screen bg-[#050510] text-[#e6e6fa] flex flex-col items-center p-4 font-sans relative overflow-hidden">
       
-      {/* 🆕 runKeyを渡してスマホでも確実にリロードされるようにする */}
       <ValentineLaunchLayer isActive={isRocketFlying} onComplete={() => setIsRocketFlying(false)} runKey={runKey} />
       
       <ActivityPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} logs={activityLogs} />
       
+      {/* 🛠️ サイドパネルには「自分を含む全員（memberList）」を渡す */}
       <MemberPanel 
         isOpen={isMemberOpen} 
         onClose={() => setIsMemberOpen(false)} 
@@ -880,7 +872,7 @@ function GameContent({ session }: { session: any }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 pb-4">
               {isMemberLoading ? (
                 Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={`skel-mem-${i}`} />)
-              ) : filteredMembers.length ===0 ? (
+              ) : filteredMembers.length === 0 ? (
                 <p className="col-span-full text-center text-[#e6e6fa]/40 py-12 text-xs tracking-widest">クルーメイトが見つかりません</p>
               ) : (
                 filteredMembers.map((m) => (
