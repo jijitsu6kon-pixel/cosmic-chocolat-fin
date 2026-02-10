@@ -17,7 +17,8 @@ export const metadata: Metadata = {
     siteName: "COSMIC CHOCOLAT",
     images: [
       {
-        url: "/og-image.png", // publicフォルダの画像を参照
+        // 👇 ここを v2 に変更しました。画像ファイル名も合わせて変更してください！
+        url: "/og-image-v2.png", 
         width: 1200,
         height: 630,
       },
@@ -31,7 +32,8 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "COSMIC CHOCOLAT",
     description: "銀河の彼方へ想いを乗せて。クルーメイトにチョコを贈ろう！",
-    images: ["/og-image.png"],
+    // 👇 ここも v2 に変更しました
+    images: ["/og-image-v2.png"],
   },
   
   // 4. ベースURL（画像のリンク切れを防ぐために必要）
