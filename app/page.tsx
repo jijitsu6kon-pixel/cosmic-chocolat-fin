@@ -473,8 +473,8 @@ function GameContent({ session }: { session: any }) {
   
   const [rankingList, setRankingList] = useState<CrewStats[]>([]);
   
-  const [memberList, setMemberList] = useState<CrewStats[]>([]); 
-  const [gridList, setGridList] = useState<CrewStats[]>([]); 
+  const [memberList, setMemberList] = useState<CrewStats[]>([]); // 全員（サイドパネル用）
+  const [gridList, setGridList] = useState<CrewStats[]>([]); // 自分抜き（メイングリッド用）
   
   const [totalChocolates, setTotalChocolates] = useState<number>(0);
   const [isRankingLoading, setIsRankingLoading] = useState(true);
@@ -515,23 +515,6 @@ function GameContent({ session }: { session: any }) {
       if (isMounted.current) setAppConfig(configMap);
     }
   }, []);
-
-  // 🆕 リアルタイム監視設定 (system_settings)
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase.channel('settings_update')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'system_settings' }, (payload) => {
-         if (isMounted.current) {
-           setAppConfig((prev: any) => ({
-             ...prev,
-             [payload.new.key]: payload.new.value
-           }));
-         }
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [user]);
 
   const fetchLogs = useCallback(async () => {
     const { data } = await supabase.from('activity_logs').select('*');
@@ -582,8 +565,8 @@ function GameContent({ session }: { session: any }) {
     if (error) { console.error(error); return; }
     if (!allStats) return;
 
-    const allMembers = allStats; 
-    const gridCandidates = allStats.filter((p: any) => p.id !== user.id); 
+    const allMembers = allStats; // サイドパネル用（自分含む）
+    const gridCandidates = allStats.filter((p: any) => p.id !== user.id); // メインググリッド用（自分除く）
 
     const ranking = allStats.slice(0, 10);
     const total = allStats.reduce((acc: number, curr: any) => acc + (curr.received_count || 0), 0);
@@ -603,11 +586,12 @@ function GameContent({ session }: { session: any }) {
         setIsMemberLoading(false);
       }
 
+      // fetchData内での計算は一応残すが、メインはuseEffectで行う
       setMyRankTitle(getRankTitle(totalSent));
     }
   }, [user, appConfig, getRankTitle, router]);
 
-  // 🆕 ランクタイトルのリアクティブな更新
+  // 🆕 ランクタイトルのリアクティブな更新 (config読み込み完了時に再計算)
   useEffect(() => {
     if (myTotalSent >= 0) {
       setMyRankTitle(getRankTitle(myTotalSent));
@@ -882,7 +866,7 @@ function GameContent({ session }: { session: any }) {
 
             <div className="fixed bottom-6 left-0 right-0 px-6 z-50 pointer-events-none">
               <div className="max-w-lg mx-auto pointer-events-auto">
-                <button onClick={handleSend} disabled={selectedUsers.size === 0 || isEventEnded} className={`w-full py-6 rounded-3xl font-black text-lg tracking-[0.2em] shadow-2xl transition-all relative overflow-hidden group border-2 ${selectedUsers.size === 0 || isEventEnded ? 'bg-[#1a1033]/90 border-white/5 text-[#e6e6fa]/30 backdrop-blur-sm cursor-not-allowed translate-y-20 opacity-0' : 'bg-gradient-to-r from-[#ff3366] via-[#ffd700] to-[#ff3366] bg-[length:200%_auto] animate-gradient border-[#ffd700] text-[#1a1033] hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_30px_rgba(255,51,102,0.8)]'}`}>
+                <button onClick={handleSend} disabled={selectedUsers.size === 0} className={`w-full py-6 rounded-3xl font-black text-lg tracking-[0.2em] shadow-2xl transition-all relative overflow-hidden group border-2 ${selectedUsers.size === 0 ? 'bg-[#1a1033]/90 border-white/5 text-[#e6e6fa]/30 backdrop-blur-sm cursor-not-allowed translate-y-20 opacity-0' : 'bg-gradient-to-r from-[#ff3366] via-[#ffd700] to-[#ff3366] bg-[length:200%_auto] animate-gradient border-[#ffd700] text-[#1a1033] hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_30px_rgba(255,51,102,0.8)]'}`}>
                   <span className="relative z-10 flex items-center justify-center gap-2">チョコを贈る ({selectedUsers.size}) 🚀</span>
                   {selectedUsers.size > 0 && <div className="absolute inset-0 bg-white/40 mix-blend-overlay translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"></div>}
                 </button>
