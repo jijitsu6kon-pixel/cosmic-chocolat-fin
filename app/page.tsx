@@ -113,24 +113,9 @@ const ShootingStarLayer = memo(() => {
           box-shadow: 0 0 4px rgba(255, 51, 153, 0.8), 0 0 8px rgba(255, 51, 153, 0.4);
           animation: shrinkHead 12000ms ease-in-out infinite;
         }
-        @keyframes tail {
-          0% { width: 0; }
-          10% { width: 100px; }
-          25% { width: 0; }
-          100% { width: 0; }
-        }
-        @keyframes shooting {
-          0% { transform: translateX(0) translateY(0) rotateZ(45deg); opacity: 1; }
-          20% { opacity: 1; }
-          25% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; }
-          100% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; }
-        }
-        @keyframes shrinkHead {
-          0% { transform: translateY(-50%) scale(1); }
-          15% { transform: translateY(-50%) scale(1); }
-          25% { transform: translateY(-50%) scale(0); }
-          100% { transform: translateY(-50%) scale(0); }
-        }
+        @keyframes tail { 0% { width: 0; } 10% { width: 100px; } 25% { width: 0; } 100% { width: 0; } }
+        @keyframes shooting { 0% { transform: translateX(0) translateY(0) rotateZ(45deg); opacity: 1; } 20% { opacity: 1; } 25% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; } 100% { transform: translateX(400px) translateY(400px) rotateZ(45deg); opacity: 0; } }
+        @keyframes shrinkHead { 0% { transform: translateY(-50%) scale(1); } 15% { transform: translateY(-50%) scale(1); } 25% { transform: translateY(-50%) scale(0); } 100% { transform: translateY(-50%) scale(0); } }
         .star-1 { top: -5%; left: 50%; animation-delay: 0ms; }
         .star-2 { top: 25%; left: 85%; animation-delay: 2400ms; }
         .star-3 { top: -15%; left: 15%; animation-delay: 4800ms; }
@@ -472,7 +457,6 @@ function GameContent({ session }: { session: any }) {
   const user = session?.user ?? null;
   
   const [rankingList, setRankingList] = useState<CrewStats[]>([]);
-  
   const [memberList, setMemberList] = useState<CrewStats[]>([]); 
   const [gridList, setGridList] = useState<CrewStats[]>([]); 
   
@@ -495,7 +479,9 @@ function GameContent({ session }: { session: any }) {
   const [lastLaunchType, setLastLaunchType] = useState<'normal' | 'lucky'>('normal');
   
   const [myTotalSent, setMyTotalSent] = useState(0); 
-  const [myRankTitle, setMyRankTitle] = useState('見習いクルー'); 
+  // 🛠️ 削除: Stateでの管理をやめる
+  // const [myRankTitle, setMyRankTitle] = useState('見習いクルー'); 
+  
   const [appConfig, setAppConfig] = useState<any>({});
   
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
@@ -516,7 +502,6 @@ function GameContent({ session }: { session: any }) {
     }
   }, []);
 
-  // 🆕 リアルタイム監視設定 (system_settings)
   useEffect(() => {
     if (!user) return;
     const channel = supabase.channel('settings_update')
@@ -544,6 +529,11 @@ function GameContent({ session }: { session: any }) {
     const currentTitle = titles.sort((a, b) => b.count - a.count).find(t => sentCount >= t.count);
     return currentTitle ? currentTitle.title : '見習いクルー';
   }, [appConfig]);
+
+  // 🆕 useMemoで「常に最新の状態」を計算する
+  const myRankTitle = useMemo(() => {
+    return getRankTitle(myTotalSent);
+  }, [getRankTitle, myTotalSent]);
 
   const fetchData = useCallback(async (isBackground = false) => {
     if (!user) return;
@@ -602,17 +592,11 @@ function GameContent({ session }: { session: any }) {
         setIsRankingLoading(false);
         setIsMemberLoading(false);
       }
-
-      setMyRankTitle(getRankTitle(totalSent));
+      
+      // 🛠️ 削除: ここで手動セットしなくてOK (useMemoが勝手にやる)
+      // setMyRankTitle(getRankTitle(totalSent));
     }
-  }, [user, appConfig, getRankTitle, router]);
-
-  // 🆕 ランクタイトルのリアクティブな更新
-  useEffect(() => {
-    if (myTotalSent >= 0) {
-      setMyRankTitle(getRankTitle(myTotalSent));
-    }
-  }, [appConfig, myTotalSent, getRankTitle]);
+  }, [user, router]); // 依存配列から getRankTitle, appConfig を削除 (fetchDataは純粋にデータ取得のみにする)
 
   useEffect(() => {
     isMounted.current = true;
