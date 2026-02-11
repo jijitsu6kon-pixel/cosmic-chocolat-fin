@@ -86,7 +86,7 @@ const StarBackground = memo(() => {
 StarBackground.displayName = 'StarBackground';
 
 // ==========================================
-// 💫 流れ星演出レイヤー (ピンク・フェードアウト・低頻度)
+// 💫 流れ星演出レイヤー
 // ==========================================
 const ShootingStarLayer = memo(() => {
   return (
@@ -133,7 +133,7 @@ const ShootingStarLayer = memo(() => {
 ShootingStarLayer.displayName = 'ShootingStarLayer';
 
 // ==========================================
-// 🎆 バレンタイン打ち上げ花火演出レイヤー (軽量化調整版)
+// 🎆 バレンタイン打ち上げ花火演出レイヤー
 // ==========================================
 const ValentineLaunchLayer = memo(({ isActive, onComplete, runKey, isLuckyMode }: { isActive: boolean, onComplete: () => void, runKey: number, isLuckyMode: boolean }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -324,16 +324,18 @@ interface UserCardProps {
   isSelected?: boolean;
   isMe?: boolean;
   isCooldown?: boolean;
+  lastSentAt?: string;  // 🆕 追加: 自分がこの人に最後に贈った時間
   rankTitle?: string;
   onSelect: (id: string) => void;
 }
 
-const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isMe, isCooldown, rankTitle, onSelect }: UserCardProps) => {
+const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isMe, isCooldown, lastSentAt, rankTitle, onSelect }: UserCardProps) => {
   const avatar = profile.avatar_url || "https://www.gravatar.com/avatar?d=mp";
 
   const getRemainingMinutes = () => {
-    if (!profile.last_received_at) return 0;
-    const lastTime = new Date(profile.last_received_at).getTime();
+    // 🛠️ 変更: 自分が贈った時間（lastSentAt）をベースに計算
+    if (!lastSentAt) return 0;
+    const lastTime = new Date(lastSentAt).getTime();
     const now = new Date().getTime();
     const diff = now - lastTime;
     const fifteenMins = 15 * 60 * 1000;
@@ -460,6 +462,9 @@ function GameContent({ session }: { session: any }) {
   const [memberList, setMemberList] = useState<CrewStats[]>([]); 
   const [gridList, setGridList] = useState<CrewStats[]>([]); 
   
+  // 🆕 自分が過去に誰に贈ったかを記録するマップ { [receiver_id]: "最後に贈った時間" }
+  const [myLastSends, setMyLastSends] = useState<Record<string, string>>({});
+  
   const [totalChocolates, setTotalChocolates] = useState<number>(0);
   const [isRankingLoading, setIsRankingLoading] = useState(true);
   const [isMemberLoading, setIsMemberLoading] = useState(true);
@@ -479,9 +484,6 @@ function GameContent({ session }: { session: any }) {
   const [lastLaunchType, setLastLaunchType] = useState<'normal' | 'lucky'>('normal');
   
   const [myTotalSent, setMyTotalSent] = useState(0); 
-  // 🛠️ 削除: Stateでの管理をやめる
-  // const [myRankTitle, setMyRankTitle] = useState('見習いクルー'); 
-  
   const [appConfig, setAppConfig] = useState<any>({});
   
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
@@ -530,7 +532,6 @@ function GameContent({ session }: { session: any }) {
     return currentTitle ? currentTitle.title : '見習いクルー';
   }, [appConfig]);
 
-  // 🆕 useMemoで「常に最新の状態」を計算する
   const myRankTitle = useMemo(() => {
     return getRankTitle(myTotalSent);
   }, [getRankTitle, myTotalSent]);
@@ -540,6 +541,22 @@ function GameContent({ session }: { session: any }) {
     if (!isBackground) {
       setIsMemberLoading(true);
       setIsRankingLoading(true);
+    }
+
+    // 🆕 自分が過去に贈った履歴を取得する（クールタイム個人判定用）
+    const { data: myHistory } = await supabase
+      .from('chocolates')
+      .select('receiver_id, created_at')
+      .eq('sender_id', user.id)
+      .order('created_at', { ascending: false });
+
+    const lastSendsMap: Record<string, string> = {};
+    if (myHistory) {
+      myHistory.forEach(record => {
+        if (!lastSendsMap[record.receiver_id]) {
+          lastSendsMap[record.receiver_id] = record.created_at;
+        }
+      });
     }
 
     const { data: me } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
@@ -587,16 +604,14 @@ function GameContent({ session }: { session: any }) {
       setRankingList(ranking);
       setTotalChocolates(total);
       setMyTotalSent(totalSent);
+      setMyLastSends(lastSendsMap); // 🆕 マップを保存
       
       if (!isBackground) {
         setIsRankingLoading(false);
         setIsMemberLoading(false);
       }
-      
-      // 🛠️ 削除: ここで手動セットしなくてOK (useMemoが勝手にやる)
-      // setMyRankTitle(getRankTitle(totalSent));
     }
-  }, [user, router]); // 依存配列から getRankTitle, appConfig を削除 (fetchDataは純粋にデータ取得のみにする)
+  }, [user, router]); 
 
   useEffect(() => {
     isMounted.current = true;
@@ -607,20 +622,6 @@ function GameContent({ session }: { session: any }) {
     }
     return () => { isMounted.current = false; };
   }, [user]); 
-
-  // 🆕 生存確認
-  useEffect(() => {
-    if (!user) return;
-    const survivalCheck = setInterval(async () => {
-      const { error } = await supabase.auth.getUser();
-      if (error) {
-        console.warn("Survival check failed. Forcing logout.");
-        await supabase.auth.signOut();
-        router.refresh(); 
-      }
-    }, 60000); 
-    return () => clearInterval(survivalCheck);
-  }, [user, router]);
 
   // ----------------------------------------
   // 🎮 アクション
@@ -791,7 +792,6 @@ function GameContent({ session }: { session: any }) {
                    <div className="flex-1">
                      <p className="text-[10px] text-[#e6e6fa]/60 uppercase tracking-widest mb-1">CREW NAME</p>
                      
-                     {/* 🛠️ スマホでもボタンが押せるようにmin-w-0を追加し、flexレイアウトを調整 */}
                      <div className={`flex items-center gap-2 rounded-xl p-1.5 transition-colors border ${isEditing ? 'bg-black/40 border-[#ff3366]/50' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
                         {isEditing ? (
                           <input 
@@ -854,9 +854,10 @@ function GameContent({ session }: { session: any }) {
                     key={m.id} 
                     profile={m} 
                     isSelected={selectedUsers.has(m.id)} 
-                    // 🛠️ 修正: user.id -> user?.id に変更してクラッシュを防止
                     isMe={user?.id === m.id}
-                    isCooldown={isCooldown(m.last_received_at)}
+                    // 🛠️ 自分が最後に贈った時間を判定に使う
+                    isCooldown={isCooldown(myLastSends[m.id])}
+                    lastSentAt={myLastSends[m.id]}
                     rankTitle={getRankTitle(m.sent_count)}
                     onSelect={handleClickUser}
                   />
@@ -901,9 +902,10 @@ function GameContent({ session }: { session: any }) {
                              index={i} 
                              isRanking={true} 
                              isSelected={selectedUsers.has(ranker.id)} 
-                             // 🛠️ 修正: user.id -> user?.id に変更してクラッシュを防止
                              isMe={user?.id === ranker.id}
-                             isCooldown={isCooldown(ranker.last_received_at)}
+                             // 🛠️ 自分が最後に贈った時間を判定に使う
+                             isCooldown={isCooldown(myLastSends[ranker.id])}
+                             lastSentAt={myLastSends[ranker.id]}
                              rankTitle={getRankTitle(ranker.sent_count)}
                              onSelect={handleClickUser}
                            />
@@ -927,9 +929,10 @@ function GameContent({ session }: { session: any }) {
                              index={rankIndex} 
                              isRanking={true} 
                              isSelected={selectedUsers.has(ranker.id)}
-                             // 🛠️ 修正: user.id -> user?.id に変更してクラッシュを防止
                              isMe={user?.id === ranker.id}
-                             isCooldown={isCooldown(ranker.last_received_at)}
+                             // 🛠️ 自分が最後に贈った時間を判定に使う
+                             isCooldown={isCooldown(myLastSends[ranker.id])}
+                             lastSentAt={myLastSends[ranker.id]}
                              rankTitle={getRankTitle(ranker.sent_count)}
                              onSelect={handleClickUser}
                            />
