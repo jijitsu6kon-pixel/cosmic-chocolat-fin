@@ -9,7 +9,16 @@ import { useRouter } from 'next/navigation';
 // ==========================================
 const supabaseUrl = 'https://cghuhjiwbjtvgulmldgv.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnaHVoaml3Ymp0dmd1bG1sZGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4ODUwMzEsImV4cCI6MjA4NTQ2MTAzMX0.qW8lkhppWdRf3k-1o3t4QdR7RJCMwLW7twX37RrSDQQ';
-const supabase = createClient(supabaseUrl, supabaseKey);
+
+// 🛠️ 修正1: Safari等のブロックを防ぐため「implicit」フローを強制
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    flowType: 'implicit',
+    detectSessionInUrl: true,
+    persistSession: true,
+    autoRefreshToken: true,
+  }
+});
 
 // ==========================================
 // 📝 型定義
@@ -324,7 +333,7 @@ interface UserCardProps {
   isSelected?: boolean;
   isMe?: boolean;
   isCooldown?: boolean;
-  lastSentAt?: string;  // 🆕 追加: 自分がこの人に最後に贈った時間
+  lastSentAt?: string;
   rankTitle?: string;
   onSelect: (id: string) => void;
 }
@@ -333,7 +342,6 @@ const UserCard = memo(({ profile, index = -1, isRanking = false, isSelected, isM
   const avatar = profile.avatar_url || "https://www.gravatar.com/avatar?d=mp";
 
   const getRemainingMinutes = () => {
-    // 🛠️ 変更: 自分が贈った時間（lastSentAt）をベースに計算
     if (!lastSentAt) return 0;
     const lastTime = new Date(lastSentAt).getTime();
     const now = new Date().getTime();
@@ -424,13 +432,41 @@ export default function CosmicChocolatApp() {
   const [session, setSession] = useState<any>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
+  // 🛠️ 修正2: セッション取得処理を強化し、確実なログイン判定を行う
   useEffect(() => {
-    const isRedirecting = window.location.hash.includes('access_token');
-    if (isRedirecting) { setIsAuthChecking(true); }
+    // URLにエラーがあれば表示
+    if (window.location.hash.includes('error_description=')) {
+      try {
+        const errorMsg = decodeURIComponent(window.location.hash.split('error_description=')[1].split('&')[0]);
+        alert(`認証エラー: ${errorMsg}\n再度ログインをお試しください。`);
+      } catch (e) {}
+      setIsAuthChecking(false);
+    }
+
+    // セッションの強制取得
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      // アクセストークンが含まれていなければロード終了（直接アクセス時など）
+      if (!window.location.hash.includes('access_token')) {
+        setIsAuthChecking(false);
+      } else if (session) {
+        setIsAuthChecking(false);
+        // ログイン成功したらURLの邪魔なパラメーターを消す
+        if (window.history.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      setIsAuthChecking(false);
+      if (session) {
+        setIsAuthChecking(false);
+      } else if (_event === 'SIGNED_OUT') {
+        setIsAuthChecking(false);
+      }
     });
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -461,8 +497,6 @@ function GameContent({ session }: { session: any }) {
   const [rankingList, setRankingList] = useState<CrewStats[]>([]);
   const [memberList, setMemberList] = useState<CrewStats[]>([]); 
   const [gridList, setGridList] = useState<CrewStats[]>([]); 
-  
-  // 🆕 自分が過去に誰に贈ったかを記録するマップ { [receiver_id]: "最後に贈った時間" }
   const [myLastSends, setMyLastSends] = useState<Record<string, string>>({});
   
   const [totalChocolates, setTotalChocolates] = useState<number>(0);
@@ -543,7 +577,6 @@ function GameContent({ session }: { session: any }) {
       setIsRankingLoading(true);
     }
 
-    // 🆕 自分が過去に贈った履歴を取得する（クールタイム個人判定用）
     const { data: myHistory } = await supabase
       .from('chocolates')
       .select('receiver_id, created_at')
@@ -604,7 +637,7 @@ function GameContent({ session }: { session: any }) {
       setRankingList(ranking);
       setTotalChocolates(total);
       setMyTotalSent(totalSent);
-      setMyLastSends(lastSendsMap); // 🆕 マップを保存
+      setMyLastSends(lastSendsMap); 
       
       if (!isBackground) {
         setIsRankingLoading(false);
@@ -622,6 +655,20 @@ function GameContent({ session }: { session: any }) {
     }
     return () => { isMounted.current = false; };
   }, [user]); 
+
+  // 🆕 生存確認
+  useEffect(() => {
+    if (!user) return;
+    const survivalCheck = setInterval(async () => {
+      const { error } = await supabase.auth.getUser();
+      if (error) {
+        console.warn("Survival check failed. Forcing logout.");
+        await supabase.auth.signOut();
+        router.refresh(); 
+      }
+    }, 60000); 
+    return () => clearInterval(survivalCheck);
+  }, [user, router]);
 
   // ----------------------------------------
   // 🎮 アクション
@@ -684,7 +731,15 @@ function GameContent({ session }: { session: any }) {
     fetchData(true);
     setTimeout(() => setIsActionLoading(false), 500);
   };
-  const signIn = () => supabase.auth.signInWithOAuth({ provider: 'discord', options: { queryParams: { prompt: 'consent' } } });
+
+  // 🛠️ 修正3: 明示的にリダイレクト先を指定する
+  const signIn = () => supabase.auth.signInWithOAuth({ 
+    provider: 'discord', 
+    options: { 
+      redirectTo: window.location.origin, 
+      queryParams: { prompt: 'consent' } 
+    } 
+  });
   
   const signOut = async () => { 
     await supabase.auth.signOut();
@@ -855,7 +910,6 @@ function GameContent({ session }: { session: any }) {
                     profile={m} 
                     isSelected={selectedUsers.has(m.id)} 
                     isMe={user?.id === m.id}
-                    // 🛠️ 自分が最後に贈った時間を判定に使う
                     isCooldown={isCooldown(myLastSends[m.id])}
                     lastSentAt={myLastSends[m.id]}
                     rankTitle={getRankTitle(m.sent_count)}
@@ -903,7 +957,6 @@ function GameContent({ session }: { session: any }) {
                              isRanking={true} 
                              isSelected={selectedUsers.has(ranker.id)} 
                              isMe={user?.id === ranker.id}
-                             // 🛠️ 自分が最後に贈った時間を判定に使う
                              isCooldown={isCooldown(myLastSends[ranker.id])}
                              lastSentAt={myLastSends[ranker.id]}
                              rankTitle={getRankTitle(ranker.sent_count)}
@@ -930,7 +983,6 @@ function GameContent({ session }: { session: any }) {
                              isRanking={true} 
                              isSelected={selectedUsers.has(ranker.id)}
                              isMe={user?.id === ranker.id}
-                             // 🛠️ 自分が最後に贈った時間を判定に使う
                              isCooldown={isCooldown(myLastSends[ranker.id])}
                              lastSentAt={myLastSends[ranker.id]}
                              rankTitle={getRankTitle(ranker.sent_count)}
